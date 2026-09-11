@@ -39,3 +39,6 @@
 
 # Ignore local Claude project spec/instructions file.
 /CLAUDE.md
+
+# Ignore local Redis dump (created when redis-server is run from this directory).
+/dump.rdb
