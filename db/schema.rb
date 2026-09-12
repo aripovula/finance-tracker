@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_12_180049) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_12_184915) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -36,6 +36,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_180049) do
     t.index ["parent_category_id"], name: "index_categories_on_parent_category_id"
   end
 
+  create_table "transactions", force: :cascade do |t|
+    t.integer "amount_cents", null: false
+    t.bigint "bank_account_id", null: false
+    t.bigint "category_id"
+    t.datetime "created_at", null: false
+    t.string "merchant_name"
+    t.string "plaid_transaction_id", null: false
+    t.datetime "posted_at"
+    t.jsonb "raw_payload"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bank_account_id"], name: "index_transactions_on_bank_account_id"
+    t.index ["category_id"], name: "index_transactions_on_category_id"
+    t.index ["plaid_transaction_id"], name: "index_transactions_on_plaid_transaction_id", unique: true
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
@@ -46,4 +62,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_180049) do
 
   add_foreign_key "bank_accounts", "users"
   add_foreign_key "categories", "categories", column: "parent_category_id"
+  add_foreign_key "transactions", "bank_accounts"
+  add_foreign_key "transactions", "categories"
 end
