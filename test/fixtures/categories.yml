@@ -1,0 +1,8 @@
+dining:
+  name: Dining
+  plaid_category_id: food_and_drink
+
+restaurants:
+  name: Restaurants
+  plaid_category_id: food_and_drink_restaurants
+  parent_category: dining
