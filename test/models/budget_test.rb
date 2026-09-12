@@ -19,6 +19,21 @@ class BudgetTest < ActiveSupport::TestCase
     assert_not budget.valid?
   end
 
+  test "invalid without a monthly_limit_cents" do
+    budget = Budget.new(budgets_attributes.merge(monthly_limit_cents: nil))
+    assert_not budget.valid?
+  end
+
+  test "invalid without an effective_month" do
+    budget = Budget.new(budgets_attributes.merge(effective_month: nil))
+    assert_not budget.valid?
+  end
+
+  test "invalid with a duplicate user, category, and effective_month" do
+    budget = Budget.new(budgets_attributes.merge(user: budgets(:one).user, category: budgets(:one).category, effective_month: budgets(:one).effective_month))
+    assert_not budget.valid?
+  end
+
   private
 
   def budgets_attributes
