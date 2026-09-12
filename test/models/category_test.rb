@@ -12,4 +12,9 @@ class CategoryTest < ActiveSupport::TestCase
   test "lists its subcategories" do
     assert_equal [ categories(:restaurants) ], categories(:dining).subcategories
   end
+
+  test "invalid without a name" do
+    category = Category.new(name: nil)
+    assert_not category.valid?
+  end
 end
