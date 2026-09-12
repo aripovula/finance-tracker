@@ -18,6 +18,16 @@ class TransactionTest < ActiveSupport::TestCase
     assert transactions(:two).valid?
   end
 
+  test "reads pending status" do
+    assert transactions(:two).pending?
+  end
+
+  test "can transition to posted status" do
+    transaction = transactions(:two)
+    transaction.posted!
+    assert transaction.posted?
+  end
+
   private
 
   def transactions_attributes
