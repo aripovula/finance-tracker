@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_12_184915) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_12_190730) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -25,6 +25,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_184915) do
     t.bigint "user_id", null: false
     t.index ["plaid_account_id"], name: "index_bank_accounts_on_plaid_account_id", unique: true
     t.index ["user_id"], name: "index_bank_accounts_on_user_id"
+  end
+
+  create_table "budgets", force: :cascade do |t|
+    t.bigint "category_id", null: false
+    t.datetime "created_at", null: false
+    t.date "effective_month", null: false
+    t.integer "monthly_limit_cents", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["category_id"], name: "index_budgets_on_category_id"
+    t.index ["user_id", "category_id", "effective_month"], name: "index_budgets_on_user_category_month", unique: true
+    t.index ["user_id"], name: "index_budgets_on_user_id"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -61,6 +73,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_12_184915) do
   end
 
   add_foreign_key "bank_accounts", "users"
+  add_foreign_key "budgets", "categories"
+  add_foreign_key "budgets", "users"
   add_foreign_key "categories", "categories", column: "parent_category_id"
   add_foreign_key "transactions", "bank_accounts"
   add_foreign_key "transactions", "categories"
