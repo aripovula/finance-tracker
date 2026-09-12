@@ -21,6 +21,21 @@ class BankAccountTest < ActiveSupport::TestCase
     assert_equal "secret-token", bank_account.reload.plaid_access_token
   end
 
+  test "invalid without a plaid_item_id" do
+    bank_account = BankAccount.new(bank_accounts_attributes.merge(user: users(:one), plaid_item_id: nil))
+    assert_not bank_account.valid?
+  end
+
+  test "invalid without a plaid_access_token" do
+    bank_account = BankAccount.new(bank_accounts_attributes.merge(user: users(:one), plaid_access_token: nil))
+    assert_not bank_account.valid?
+  end
+
+  test "invalid with a duplicate plaid_account_id" do
+    bank_account = BankAccount.new(bank_accounts_attributes.merge(user: users(:one), plaid_account_id: bank_accounts(:one).plaid_account_id))
+    assert_not bank_account.valid?
+  end
+
   private
 
   def bank_accounts_attributes
