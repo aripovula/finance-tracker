@@ -1,0 +1,18 @@
+one:
+  bank_account: one
+  category: dining
+  plaid_transaction_id: txn-sandbox-1
+  amount_cents: 2599
+  merchant_name: Chipotle
+  posted_at: 2026-09-01 12:00:00
+  status: posted
+  raw_payload: { "source": "sandbox" }
+
+two:
+  bank_account: one
+  plaid_transaction_id: txn-sandbox-2
+  amount_cents: 1500
+  merchant_name: Unknown Merchant
+  posted_at: 2026-09-02 09:30:00
+  status: pending
+  raw_payload: { "source": "sandbox" }

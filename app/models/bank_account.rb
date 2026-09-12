@@ -1,5 +1,6 @@
 class BankAccount < ApplicationRecord
   belongs_to :user
+  has_many :transactions
 
   encrypts :plaid_access_token
 
