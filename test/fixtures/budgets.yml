@@ -1,0 +1,11 @@
+one:
+  user: one
+  category: dining
+  monthly_limit_cents: 50000
+  effective_month: 2026-09-01
+
+two:
+  user: one
+  category: restaurants
+  monthly_limit_cents: 20000
+  effective_month: 2026-09-01
