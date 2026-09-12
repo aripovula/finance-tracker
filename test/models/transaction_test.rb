@@ -28,6 +28,21 @@ class TransactionTest < ActiveSupport::TestCase
     assert transaction.posted?
   end
 
+  test "invalid without a plaid_transaction_id" do
+    transaction = Transaction.new(transactions_attributes.merge(plaid_transaction_id: nil))
+    assert_not transaction.valid?
+  end
+
+  test "invalid with a duplicate plaid_transaction_id" do
+    transaction = Transaction.new(transactions_attributes.merge(plaid_transaction_id: transactions(:one).plaid_transaction_id))
+    assert_not transaction.valid?
+  end
+
+  test "invalid without amount_cents" do
+    transaction = Transaction.new(transactions_attributes.merge(amount_cents: nil))
+    assert_not transaction.valid?
+  end
+
   private
 
   def transactions_attributes
