@@ -1,42 +1,40 @@
-require "test_helper"
+require "rails_helper"
 
-class BankAccountTest < ActiveSupport::TestCase
-  test "belongs to a user" do
-    assert_equal users(:one), bank_accounts(:one).user
+RSpec.describe BankAccount, type: :model do
+  it "belongs to a user" do
+    expect(bank_accounts(:one).user).to eq(users(:one))
   end
 
-  test "invalid without a user" do
+  it "is invalid without a user" do
     bank_account = BankAccount.new(bank_accounts_attributes.merge(user: nil))
-    assert_not bank_account.valid?
+    expect(bank_account).not_to be_valid
   end
 
-  test "encrypts plaid_access_token at rest" do
+  it "encrypts plaid_access_token at rest" do
     bank_account = BankAccount.create!(bank_accounts_attributes.merge(user: users(:one), plaid_access_token: "secret-token"))
 
     raw_value = BankAccount.connection.select_value(
       "SELECT plaid_access_token FROM bank_accounts WHERE id = #{bank_account.id}"
     )
 
-    assert_not_equal "secret-token", raw_value
-    assert_equal "secret-token", bank_account.reload.plaid_access_token
+    expect(raw_value).not_to eq("secret-token")
+    expect(bank_account.reload.plaid_access_token).to eq("secret-token")
   end
 
-  test "invalid without a plaid_item_id" do
+  it "is invalid without a plaid_item_id" do
     bank_account = BankAccount.new(bank_accounts_attributes.merge(user: users(:one), plaid_item_id: nil))
-    assert_not bank_account.valid?
+    expect(bank_account).not_to be_valid
   end
 
-  test "invalid without a plaid_access_token" do
+  it "is invalid without a plaid_access_token" do
     bank_account = BankAccount.new(bank_accounts_attributes.merge(user: users(:one), plaid_access_token: nil))
-    assert_not bank_account.valid?
+    expect(bank_account).not_to be_valid
   end
 
-  test "invalid with a duplicate plaid_account_id" do
+  it "is invalid with a duplicate plaid_account_id" do
     bank_account = BankAccount.new(bank_accounts_attributes.merge(user: users(:one), plaid_account_id: bank_accounts(:one).plaid_account_id))
-    assert_not bank_account.valid?
+    expect(bank_account).not_to be_valid
   end
-
-  private
 
   def bank_accounts_attributes
     {
