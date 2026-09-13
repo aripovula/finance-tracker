@@ -1,40 +1,38 @@
-require "test_helper"
+require "rails_helper"
 
-class BudgetTest < ActiveSupport::TestCase
-  test "belongs to a user" do
-    assert_equal users(:one), budgets(:one).user
+RSpec.describe Budget, type: :model do
+  it "belongs to a user" do
+    expect(budgets(:one).user).to eq(users(:one))
   end
 
-  test "invalid without a user" do
+  it "is invalid without a user" do
     budget = Budget.new(budgets_attributes.merge(user: nil))
-    assert_not budget.valid?
+    expect(budget).not_to be_valid
   end
 
-  test "belongs to a category" do
-    assert_equal categories(:dining), budgets(:one).category
+  it "belongs to a category" do
+    expect(budgets(:one).category).to eq(categories(:dining))
   end
 
-  test "invalid without a category" do
+  it "is invalid without a category" do
     budget = Budget.new(budgets_attributes.merge(category: nil))
-    assert_not budget.valid?
+    expect(budget).not_to be_valid
   end
 
-  test "invalid without a monthly_limit_cents" do
+  it "is invalid without a monthly_limit_cents" do
     budget = Budget.new(budgets_attributes.merge(monthly_limit_cents: nil))
-    assert_not budget.valid?
+    expect(budget).not_to be_valid
   end
 
-  test "invalid without an effective_month" do
+  it "is invalid without an effective_month" do
     budget = Budget.new(budgets_attributes.merge(effective_month: nil))
-    assert_not budget.valid?
+    expect(budget).not_to be_valid
   end
 
-  test "invalid with a duplicate user, category, and effective_month" do
+  it "is invalid with a duplicate user, category, and effective_month" do
     budget = Budget.new(budgets_attributes.merge(user: budgets(:one).user, category: budgets(:one).category, effective_month: budgets(:one).effective_month))
-    assert_not budget.valid?
+    expect(budget).not_to be_valid
   end
-
-  private
 
   def budgets_attributes
     {
