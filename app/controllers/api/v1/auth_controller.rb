@@ -21,6 +21,12 @@ module Api
         end
       end
 
+      def refresh
+        render_envelope(data: AuthTokenService.new.refresh(params[:refresh_token]))
+      rescue ActiveRecord::RecordNotFound
+        render_envelope(errors: [ "Invalid refresh token" ], status: :unauthorized)
+      end
+
       private
 
       def user_params

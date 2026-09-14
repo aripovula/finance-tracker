@@ -64,4 +64,35 @@ RSpec.describe "api/v1/auth", type: :request do
       end
     end
   end
+
+  path "/api/v1/auth/refresh" do
+    post "Rotates a refresh token for a new token pair" do
+      tags "Auth"
+      consumes "application/json"
+      produces "application/json"
+      parameter name: :body, in: :body, schema: {
+        type: :object,
+        properties: {
+          refresh_token: { type: :string }
+        },
+        required: [ "refresh_token" ]
+      }
+
+      response "200", "token pair rotated" do
+        let(:body) { { refresh_token: AuthTokenService.new.issue_tokens(users(:one))[:refresh_token] } }
+
+        run_test! do |response|
+          data = JSON.parse(response.body)["data"]
+          expect(data["access_token"]).to be_present
+          expect(data["refresh_token"]).to be_present
+        end
+      end
+
+      response "401", "invalid refresh token" do
+        let(:body) { { refresh_token: "not-a-real-token" } }
+
+        run_test!
+      end
+    end
+  end
 end
