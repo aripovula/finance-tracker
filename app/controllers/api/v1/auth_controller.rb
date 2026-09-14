@@ -11,6 +11,16 @@ module Api
         end
       end
 
+      def login
+        user = User.find_by(email: params[:email])
+
+        if user&.authenticate(params[:password])
+          render_envelope(data: AuthTokenService.new.issue_tokens(user))
+        else
+          render_envelope(errors: [ "Invalid email or password" ], status: :unauthorized)
+        end
+      end
+
       private
 
       def user_params
