@@ -4,18 +4,13 @@ RSpec.describe "api/v1/plaid", type: :request do
   path "/api/v1/plaid/link_token" do
     post "Creates a Plaid Link token" do
       tags "Plaid"
+      security [ bearerAuth: [] ]
       consumes "application/json"
       produces "application/json"
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
-          user_id: { type: :integer }
-        },
-        required: [ "user_id" ]
-      }
+      parameter name: :Authorization, in: :header, type: :string, required: true
 
       response "200", "link token created" do
-        let(:body) { { user_id: users(:one).id } }
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:one))[:access_token]}" }
 
         before do
           fake_response = instance_double(Plaid::LinkTokenCreateResponse, link_token: "link-sandbox-123")
@@ -29,8 +24,8 @@ RSpec.describe "api/v1/plaid", type: :request do
         end
       end
 
-      response "404", "user not found" do
-        let(:body) { { user_id: 0 } }
+      response "401", "missing or invalid token" do
+        let(:Authorization) { "Bearer not-a-real-token" }
 
         run_test!
       end
@@ -40,24 +35,25 @@ RSpec.describe "api/v1/plaid", type: :request do
   path "/api/v1/plaid/exchange_public_token" do
     post "Exchanges a Plaid public_token and creates a bank_account" do
       tags "Plaid"
+      security [ bearerAuth: [] ]
       consumes "application/json"
       produces "application/json"
+      parameter name: :Authorization, in: :header, type: :string, required: true
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
-          user_id: { type: :integer },
           public_token: { type: :string },
           institution_name: { type: :string },
           account_id: { type: :string },
           mask: { type: :string }
         },
-        required: [ "user_id", "public_token", "institution_name", "account_id" ]
+        required: [ "public_token", "institution_name", "account_id" ]
       }
 
       response "201", "bank_account created" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:one))[:access_token]}" }
         let(:body) do
           {
-            user_id: users(:one).id,
             public_token: "public-sandbox-123",
             institution_name: "Chase",
             account_id: "account-sandbox-new",
@@ -77,16 +73,17 @@ RSpec.describe "api/v1/plaid", type: :request do
         end
       end
 
-      response "404", "user not found" do
-        let(:body) { { user_id: 0, public_token: "public-sandbox-123", institution_name: "Chase", account_id: "account-sandbox-new" } }
+      response "401", "missing or invalid token" do
+        let(:Authorization) { "Bearer not-a-real-token" }
+        let(:body) { { public_token: "public-sandbox-123", institution_name: "Chase", account_id: "account-sandbox-new" } }
 
         run_test!
       end
 
       response "422", "duplicate plaid_account_id" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:one))[:access_token]}" }
         let(:body) do
           {
-            user_id: users(:one).id,
             public_token: "public-sandbox-123",
             institution_name: "Chase",
             account_id: bank_accounts(:one).plaid_account_id
