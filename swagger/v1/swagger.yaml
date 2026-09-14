@@ -4,38 +4,111 @@ info:
   title: Finance Tracker API
   version: v1
 paths:
-  "/api/v1/plaid/link_token":
+  "/api/v1/auth/register":
     post:
-      summary: Creates a Plaid Link token
+      summary: Registers a new user
       tags:
-      - Plaid
+      - Auth
       parameters: []
       responses:
-        '200':
-          description: link token created
-        '404':
-          description: user not found
+        '201':
+          description: user registered
+        '422':
+          description: invalid params
       requestBody:
         content:
           application/json:
             schema:
               type: object
               properties:
-                user_id:
-                  type: integer
+                email:
+                  type: string
+                password:
+                  type: string
               required:
-              - user_id
+              - email
+              - password
+  "/api/v1/auth/login":
+    post:
+      summary: Logs in with email and password
+      tags:
+      - Auth
+      parameters: []
+      responses:
+        '200':
+          description: logged in
+        '401':
+          description: invalid credentials
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+              - email
+              - password
+  "/api/v1/auth/refresh":
+    post:
+      summary: Rotates a refresh token for a new token pair
+      tags:
+      - Auth
+      parameters: []
+      responses:
+        '200':
+          description: token pair rotated
+        '401':
+          description: invalid refresh token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required:
+              - refresh_token
+  "/api/v1/plaid/link_token":
+    post:
+      summary: Creates a Plaid Link token
+      tags:
+      - Plaid
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: link token created
+        '401':
+          description: missing or invalid token
   "/api/v1/plaid/exchange_public_token":
     post:
       summary: Exchanges a Plaid public_token and creates a bank_account
       tags:
       - Plaid
-      parameters: []
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
       responses:
         '201':
           description: bank_account created
-        '404':
-          description: user not found
+        '401':
+          description: missing or invalid token
         '422':
           description: duplicate plaid_account_id
       requestBody:
@@ -44,8 +117,6 @@ paths:
             schema:
               type: object
               properties:
-                user_id:
-                  type: integer
                 public_token:
                   type: string
                 institution_name:
@@ -55,10 +126,15 @@ paths:
                 mask:
                   type: string
               required:
-              - user_id
               - public_token
               - institution_name
               - account_id
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 servers:
 - url: http://{defaultHost}
   variables:
