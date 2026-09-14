@@ -16,6 +16,8 @@ Rails.application.routes.draw do
 
   namespace :api do
     namespace :v1 do
+      post "auth/register", to: "auth#register"
+
       post "plaid/link_token", to: "plaid#link_token"
       post "plaid/exchange_public_token", to: "plaid#exchange_public_token"
     end
