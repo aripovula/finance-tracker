@@ -45,6 +45,9 @@ gem "image_processing", "~> 1.2"
 # Connect bank accounts via Plaid Link and fetch transactions [https://github.com/plaid/plaid-ruby]
 gem "plaid", "~> 51.0"
 
+# Sign and verify JWT access tokens [https://github.com/jwt/ruby-jwt]
+gem "jwt", "~> 3.3"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
