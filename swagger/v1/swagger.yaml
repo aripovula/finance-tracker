@@ -1,0 +1,66 @@
+---
+openapi: 3.0.1
+info:
+  title: Finance Tracker API
+  version: v1
+paths:
+  "/api/v1/plaid/link_token":
+    post:
+      summary: Creates a Plaid Link token
+      tags:
+      - Plaid
+      parameters: []
+      responses:
+        '200':
+          description: link token created
+        '404':
+          description: user not found
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+              required:
+              - user_id
+  "/api/v1/plaid/exchange_public_token":
+    post:
+      summary: Exchanges a Plaid public_token and creates a bank_account
+      tags:
+      - Plaid
+      parameters: []
+      responses:
+        '201':
+          description: bank_account created
+        '404':
+          description: user not found
+        '422':
+          description: duplicate plaid_account_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                public_token:
+                  type: string
+                institution_name:
+                  type: string
+                account_id:
+                  type: string
+                mask:
+                  type: string
+              required:
+              - user_id
+              - public_token
+              - institution_name
+              - account_id
+servers:
+- url: http://{defaultHost}
+  variables:
+    defaultHost:
+      default: localhost:3000
