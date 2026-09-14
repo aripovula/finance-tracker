@@ -9,6 +9,14 @@ class AuthTokenService
     { access_token: access_token_for(user), refresh_token: refresh_token }
   end
 
+  def refresh(raw_refresh_token)
+    token_record = RefreshToken.active.find_by(token_digest: RefreshToken.digest(raw_refresh_token))
+    raise ActiveRecord::RecordNotFound unless token_record
+
+    token_record.revoke!
+    issue_tokens(token_record.user)
+  end
+
   private
 
   def access_token_for(user)

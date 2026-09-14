@@ -21,4 +21,32 @@ RSpec.describe AuthTokenService do
       expect(stored.token_digest).to eq(RefreshToken.digest(tokens[:refresh_token]))
     end
   end
+
+  describe "#refresh" do
+    it "revokes the used refresh token and issues a new pair" do
+      original_tokens = described_class.new.issue_tokens(users(:one))
+      original_record = users(:one).refresh_tokens.find_by(token_digest: RefreshToken.digest(original_tokens[:refresh_token]))
+
+      new_tokens = described_class.new.refresh(original_tokens[:refresh_token])
+
+      expect(original_record.reload).to be_revoked
+      expect(new_tokens[:refresh_token]).not_to eq(original_tokens[:refresh_token])
+      expect(JsonWebToken.decode(new_tokens[:access_token])[:user_id]).to eq(users(:one).id)
+    end
+
+    it "raises for an unknown refresh token" do
+      expect {
+        described_class.new.refresh("not-a-real-token")
+      }.to raise_error(ActiveRecord::RecordNotFound)
+    end
+
+    it "raises when reusing an already-rotated refresh token" do
+      original_tokens = described_class.new.issue_tokens(users(:one))
+      described_class.new.refresh(original_tokens[:refresh_token])
+
+      expect {
+        described_class.new.refresh(original_tokens[:refresh_token])
+      }.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
 end
