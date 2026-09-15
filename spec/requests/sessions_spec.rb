@@ -16,4 +16,15 @@ RSpec.describe "Sessions", type: :request do
       expect(session[:user_id]).to be_nil
     end
   end
+
+  describe "DELETE /logout" do
+    it "clears the session and redirects to login" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      delete logout_path
+
+      expect(response).to redirect_to(login_path)
+      expect(session[:user_id]).to be_nil
+    end
+  end
 end
