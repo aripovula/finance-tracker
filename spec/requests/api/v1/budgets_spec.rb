@@ -58,4 +58,40 @@ RSpec.describe "api/v1/budgets", type: :request do
       end
     end
   end
+
+  path "/api/v1/budgets/{id}" do
+    patch "Updates a budget" do
+      tags "Budgets"
+      security [ bearerAuth: [] ]
+      consumes "application/json"
+      produces "application/json"
+      parameter name: :Authorization, in: :header, type: :string, required: true
+      parameter name: :id, in: :path, type: :integer, required: true
+      parameter name: :body, in: :body, schema: {
+        type: :object,
+        properties: {
+          monthly_limit_cents: { type: :integer }
+        }
+      }
+
+      response "200", "budget updated" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:one))[:access_token]}" }
+        let(:id) { budgets(:one).id }
+        let(:body) { { monthly_limit_cents: 75_000 } }
+
+        run_test! do |response|
+          data = JSON.parse(response.body)["data"]
+          expect(data["monthly_limit_cents"]).to eq(75_000)
+        end
+      end
+
+      response "404", "budget not owned by user" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:two))[:access_token]}" }
+        let(:id) { budgets(:one).id }
+        let(:body) { { monthly_limit_cents: 75_000 } }
+
+        run_test!
+      end
+    end
+  end
 end
