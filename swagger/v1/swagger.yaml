@@ -73,6 +73,104 @@ paths:
                   type: string
               required:
               - refresh_token
+  "/api/v1/budgets":
+    get:
+      summary: Lists the current user's budgets
+      tags:
+      - Budgets
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: budgets listed
+    post:
+      summary: Creates a budget
+      tags:
+      - Budgets
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          description: budget created
+        '422':
+          description: duplicate category for effective_month
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category_id:
+                  type: integer
+                monthly_limit_cents:
+                  type: integer
+                effective_month:
+                  type: string
+              required:
+              - category_id
+              - monthly_limit_cents
+              - effective_month
+  "/api/v1/budgets/{id}":
+    patch:
+      summary: Updates a budget
+      tags:
+      - Budgets
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: budget updated
+        '404':
+          description: budget not owned by user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                monthly_limit_cents:
+                  type: integer
+  "/api/v1/categories":
+    get:
+      summary: Lists all categories
+      tags:
+      - Categories
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: categories listed
+        '401':
+          description: missing or invalid token
   "/api/v1/plaid/link_token":
     post:
       summary: Creates a Plaid Link token
@@ -129,6 +227,57 @@ paths:
               - public_token
               - institution_name
               - account_id
+  "/api/v1/transactions":
+    get:
+      summary: Lists the current user's transactions
+      tags:
+      - Transactions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: category_id
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: filtered by category_id
+        '401':
+          description: missing or invalid token
+  "/api/v1/transactions/{id}":
+    get:
+      summary: Shows a single transaction
+      tags:
+      - Transactions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: transaction found
+        '404':
+          description: transaction not owned by user
 components:
   securitySchemes:
     bearerAuth:
