@@ -21,6 +21,14 @@ module Api
         )
       end
 
+      def show
+        transaction = current_user_transactions.find(params[:id])
+
+        render_envelope(data: transaction_json(transaction))
+      rescue ActiveRecord::RecordNotFound
+        render_envelope(errors: [ "Transaction not found" ], status: :not_found)
+      end
+
       private
 
       def current_user_transactions

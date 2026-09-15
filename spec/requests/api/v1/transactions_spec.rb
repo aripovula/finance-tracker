@@ -37,4 +37,31 @@ RSpec.describe "api/v1/transactions", type: :request do
       end
     end
   end
+
+  path "/api/v1/transactions/{id}" do
+    get "Shows a single transaction" do
+      tags "Transactions"
+      security [ bearerAuth: [] ]
+      produces "application/json"
+      parameter name: :Authorization, in: :header, type: :string, required: true
+      parameter name: :id, in: :path, type: :integer, required: true
+
+      response "200", "transaction found" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:one))[:access_token]}" }
+        let(:id) { transactions(:one).id }
+
+        run_test! do |response|
+          data = JSON.parse(response.body)["data"]
+          expect(data["merchant_name"]).to eq("Chipotle")
+        end
+      end
+
+      response "404", "transaction not owned by user" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:two))[:access_token]}" }
+        let(:id) { transactions(:one).id }
+
+        run_test!
+      end
+    end
+  end
 end
