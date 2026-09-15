@@ -3,6 +3,9 @@ module Api
     class TransactionsController < BaseController
       before_action :authenticate_user!
 
+      DEFAULT_LIMIT = 25
+      MAX_LIMIT = 100
+
       def index
         scope = current_user_transactions
         scope = scope.where(category_id: params[:category_id]) if params[:category_id].present?
@@ -10,15 +13,25 @@ module Api
         scope = scope.where(posted_at: ..params[:to]) if params[:to].present?
         scope = scope.where("transactions.id > ?", params[:after]) if params[:after].present?
 
-        transactions = scope.order(:id)
+        transactions = scope.order(:id).limit(limit)
 
-        render_envelope(data: transactions.map { |transaction| transaction_json(transaction) })
+        render_envelope(
+          data: transactions.map { |transaction| transaction_json(transaction) },
+          meta: { next_cursor: transactions.last&.id }
+        )
       end
 
       private
 
       def current_user_transactions
         Transaction.joins(:bank_account).where(bank_accounts: { user_id: current_user.id })
+      end
+
+      def limit
+        requested = params[:limit].to_i
+        return DEFAULT_LIMIT if requested <= 0
+
+        [ requested, MAX_LIMIT ].min
       end
 
       def transaction_json(transaction)
