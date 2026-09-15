@@ -28,6 +28,7 @@ Rails.application.routes.draw do
       post "plaid/exchange_public_token", to: "plaid#exchange_public_token"
 
       resources :categories, only: [ :index ]
+      resources :transactions, only: [ :index ]
     end
   end
 end
