@@ -9,7 +9,21 @@ module Api
         render_envelope(data: budgets.map { |budget| budget_json(budget) })
       end
 
+      def create
+        budget = current_user.budgets.new(budget_params)
+
+        if budget.save
+          render_envelope(data: budget_json(budget), status: :created)
+        else
+          render_envelope(errors: budget.errors.full_messages, status: :unprocessable_entity)
+        end
+      end
+
       private
+
+      def budget_params
+        params.permit(:category_id, :monthly_limit_cents, :effective_month)
+      end
 
       def budget_json(budget)
         {
