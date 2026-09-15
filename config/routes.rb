@@ -29,6 +29,7 @@ Rails.application.routes.draw do
 
       resources :categories, only: [ :index ]
       resources :transactions, only: [ :index, :show ]
+      resources :budgets, only: [ :index ]
     end
   end
 end
