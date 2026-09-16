@@ -23,16 +23,35 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <main class="container mx-auto mt-28 px-5 flex flex-col gap-4">
-      <% if flash[:notice] %>
-        <div class="rounded-md bg-green-50 px-4 py-3 text-green-800"><%= flash[:notice] %></div>
-      <% end %>
-      <% if flash[:alert] %>
-        <div class="rounded-md bg-red-50 px-4 py-3 text-red-800"><%= flash[:alert] %></div>
-      <% end %>
+  <body class="bg-gray-50">
+    <% if logged_in? %>
+      <div class="flex min-h-screen" data-controller="sidebar">
+        <%= render "shared/sidebar" %>
 
-      <%= yield %>
-    </main>
+        <div class="flex flex-1 flex-col">
+          <header class="flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-4 md:hidden">
+            <button type="button" data-action="sidebar#open" aria-label="Open menu"
+                    class="rounded-md p-2 text-gray-500 hover:bg-gray-100">
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+              </svg>
+            </button>
+            <span class="ml-3 text-base font-semibold text-gray-900">Finance Tracker</span>
+          </header>
+
+          <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-5xl">
+              <%= render "shared/flash" %>
+              <%= yield %>
+            </div>
+          </main>
+        </div>
+      </div>
+    <% else %>
+      <main class="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <%= render "shared/flash" %>
+        <%= yield %>
+      </main>
+    <% end %>
   </body>
 </html>
