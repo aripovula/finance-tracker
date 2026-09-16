@@ -22,6 +22,18 @@ class BudgetsController < ApplicationController
   private
 
   def budget_params
-    params.require(:budget).permit(:category_id, :monthly_limit_cents, :effective_month)
+    permitted = params.require(:budget).permit(:category_id, :monthly_limit, :effective_month)
+
+    {
+      category_id: permitted[:category_id],
+      monthly_limit_cents: dollars_to_cents(permitted[:monthly_limit]),
+      effective_month: permitted[:effective_month]
+    }
+  end
+
+  def dollars_to_cents(dollars)
+    return nil if dollars.blank?
+
+    (BigDecimal(dollars) * 100).round
   end
 end

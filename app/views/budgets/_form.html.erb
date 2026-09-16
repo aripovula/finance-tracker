@@ -17,8 +17,10 @@
   </div>
 
   <div>
-    <%= form.label :monthly_limit_cents, "Monthly limit (cents)", class: "block text-sm font-medium text-gray-700" %>
-    <%= form.number_field :monthly_limit_cents, min: 1, required: true,
+    <%= form.label :monthly_limit, "Monthly limit ($)", class: "block text-sm font-medium text-gray-700" %>
+    <%= form.text_field :monthly_limit,
+          value: (@budget.monthly_limit_cents ? "%.2f" % (@budget.monthly_limit_cents / 100.0) : nil),
+          inputmode: "decimal", placeholder: "500.00", required: true,
           class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
   </div>
 
