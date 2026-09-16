@@ -1,24 +1,37 @@
 <% content_for :title, "Categories" %>
 
-<div class="w-full flex items-center justify-between">
+<div class="mb-6">
   <h1 class="text-2xl font-semibold text-gray-900">Categories</h1>
+  <p class="mt-1 text-sm text-gray-500">Spending categories used to organize your transactions and budgets.</p>
 </div>
 
-<div class="overflow-hidden rounded-md border border-gray-200">
-  <table class="min-w-full divide-y divide-gray-200">
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Name</th>
-        <th class="px-4 py-2 text-left text-sm font-medium text-gray-500">Parent category</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-200 bg-white">
-      <% @categories.each do |category| %>
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+  <% if @categories.any? %>
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
         <tr>
-          <td class="px-4 py-2 text-sm text-gray-900"><%= category.name %></td>
-          <td class="px-4 py-2 text-sm text-gray-500"><%= category.parent_category&.name %></td>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Name</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Parent category</th>
         </tr>
-      <% end %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <% @categories.each do |category| %>
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= category.name %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+              <% if category.parent_category %>
+                <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                  <%= category.parent_category.name %>
+                </span>
+              <% else %>
+                <span class="text-gray-400">&mdash;</span>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="px-6 py-8 text-center text-sm text-gray-500">No categories yet.</p>
+  <% end %>
 </div>
