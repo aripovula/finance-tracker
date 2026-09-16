@@ -19,6 +19,7 @@ Rails.application.routes.draw do
   delete "logout", to: "sessions#destroy"
 
   resources :categories, only: [ :index ]
+  resources :budgets, only: [ :index ]
 
   namespace :api do
     namespace :v1 do

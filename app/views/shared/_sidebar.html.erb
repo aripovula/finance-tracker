@@ -11,6 +11,7 @@
   <nav class="flex-1 space-y-1 px-3">
     <%= link_to "Dashboard", root_path, class: nav_link_class(current_page?(root_path)) %>
     <%= link_to "Categories", categories_path, class: nav_link_class(current_page?(categories_path)) %>
+    <%= link_to "Budgets", budgets_path, class: nav_link_class(request.path.start_with?(budgets_path)) %>
   </nav>
 
   <div class="border-t border-gray-200 p-4">
