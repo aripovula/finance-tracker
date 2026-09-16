@@ -18,6 +18,8 @@ Rails.application.routes.draw do
   post "login", to: "sessions#create"
   delete "logout", to: "sessions#destroy"
 
+  resources :categories, only: [ :index ]
+
   namespace :api do
     namespace :v1 do
       post "auth/register", to: "auth#register"

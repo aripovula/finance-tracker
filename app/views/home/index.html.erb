@@ -3,6 +3,9 @@
 <div class="w-full flex items-center justify-between">
   <h1 class="text-2xl font-semibold text-gray-900">Welcome, <%= current_user.email %></h1>
 
-  <%= button_to "Log out", logout_path, method: :delete,
-        class: "rounded-md bg-gray-100 px-4 py-2 text-gray-700 font-medium hover:bg-gray-200 cursor-pointer" %>
+  <div class="flex items-center gap-3">
+    <%= link_to "Categories", categories_path, class: "text-gray-700 font-medium hover:underline" %>
+    <%= button_to "Log out", logout_path, method: :delete,
+          class: "rounded-md bg-gray-100 px-4 py-2 text-gray-700 font-medium hover:bg-gray-200 cursor-pointer" %>
+  </div>
 </div>
