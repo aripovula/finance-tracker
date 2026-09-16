@@ -27,7 +27,7 @@ class BudgetsController < ApplicationController
     {
       category_id: permitted[:category_id],
       monthly_limit_cents: dollars_to_cents(permitted[:monthly_limit]),
-      effective_month: permitted[:effective_month]
+      effective_month: month_param_to_date(permitted[:effective_month])
     }
   end
 
@@ -35,5 +35,11 @@ class BudgetsController < ApplicationController
     return nil if dollars.blank?
 
     (BigDecimal(dollars) * 100).round
+  end
+
+  def month_param_to_date(month)
+    return nil if month.blank?
+
+    Date.parse("#{month}-01")
   end
 end
