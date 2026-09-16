@@ -1,5 +1,6 @@
 class BudgetsController < ApplicationController
   before_action :require_login
+  before_action :set_budget, only: [ :edit, :update ]
 
   def index
     @budgets = current_user.budgets.includes(:category).order(effective_month: :desc)
@@ -19,7 +20,22 @@ class BudgetsController < ApplicationController
     end
   end
 
+  def edit
+  end
+
+  def update
+    if @budget.update(budget_params)
+      redirect_to budgets_path, notice: "Budget updated"
+    else
+      render :edit, status: :unprocessable_entity
+    end
+  end
+
   private
+
+  def set_budget
+    @budget = current_user.budgets.find(params[:id])
+  end
 
   def budget_params
     permitted = params.require(:budget).permit(:category_id, :monthly_limit, :effective_month)

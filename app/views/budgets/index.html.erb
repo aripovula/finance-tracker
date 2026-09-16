@@ -17,6 +17,7 @@
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Monthly limit</th>
           <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Effective month</th>
+          <th scope="col" class="px-6 py-3"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-200">
@@ -25,6 +26,9 @@
             <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= budget.category.name %></td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= number_to_currency(budget.monthly_limit_cents / 100.0) %></td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= budget.effective_month.strftime("%B %Y") %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
+              <%= link_to "Edit", edit_budget_path(budget), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+            </td>
           </tr>
         <% end %>
       </tbody>

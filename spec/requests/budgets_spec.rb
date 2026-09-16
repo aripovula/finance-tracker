@@ -45,4 +45,36 @@ RSpec.describe "Budgets", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
     end
   end
+
+  describe "PATCH /budgets/:id" do
+    it "updates the current user's budget" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      patch budget_path(budgets(:one)), params: {
+        budget: {
+          category_id: budgets(:one).category_id,
+          monthly_limit: "750.00",
+          effective_month: budgets(:one).effective_month.strftime("%Y-%m")
+        }
+      }
+
+      expect(response).to redirect_to(budgets_path)
+      expect(budgets(:one).reload.monthly_limit_cents).to eq(75_000)
+    end
+
+    it "redirects with an alert when the budget belongs to another user" do
+      post login_path, params: { email: users(:two).email, password: "password123" }
+
+      patch budget_path(budgets(:one)), params: {
+        budget: {
+          category_id: budgets(:one).category_id,
+          monthly_limit: "750.00",
+          effective_month: budgets(:one).effective_month.strftime("%Y-%m")
+        }
+      }
+
+      expect(response).to redirect_to(root_path)
+      expect(flash[:alert]).to be_present
+    end
+  end
 end
