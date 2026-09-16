@@ -5,8 +5,14 @@
   <p class="mt-1 text-sm text-gray-500">Spending categories used to organize your transactions and budgets.</p>
 </div>
 
-<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" data-controller="category-list">
   <% if @categories.any? %>
+    <div class="border-b border-gray-200 p-4">
+      <input type="search" data-category-list-target="input" data-action="input->category-list#filter"
+             placeholder="Filter by name&hellip;" aria-label="Filter categories by name"
+             class="block w-full max-w-xs rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+    </div>
+
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
@@ -16,7 +22,7 @@
       </thead>
       <tbody class="divide-y divide-gray-200">
         <% @categories.each do |category| %>
-          <tr class="hover:bg-gray-50">
+          <tr data-category-list-target="row" data-name="<%= category.name.downcase %>" class="hover:bg-gray-50">
             <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= category.name %></td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
               <% if category.parent_category %>
@@ -29,6 +35,9 @@
             </td>
           </tr>
         <% end %>
+        <tr data-category-list-target="emptyState" hidden>
+          <td colspan="2" class="px-6 py-8 text-center text-sm text-gray-500">No categories match your filter.</td>
+        </tr>
       </tbody>
     </table>
   <% else %>
