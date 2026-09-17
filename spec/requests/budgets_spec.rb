@@ -77,4 +77,27 @@ RSpec.describe "Budgets", type: :request do
       expect(flash[:alert]).to be_present
     end
   end
+
+  describe "DELETE /budgets/:id" do
+    it "deletes the current user's budget" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      expect {
+        delete budget_path(budgets(:one))
+      }.to change { users(:one).budgets.count }.by(-1)
+
+      expect(response).to redirect_to(budgets_path)
+    end
+
+    it "redirects with an alert when the budget belongs to another user" do
+      post login_path, params: { email: users(:two).email, password: "password123" }
+
+      expect {
+        delete budget_path(budgets(:one))
+      }.not_to change { Budget.count }
+
+      expect(response).to redirect_to(root_path)
+      expect(flash[:alert]).to be_present
+    end
+  end
 end

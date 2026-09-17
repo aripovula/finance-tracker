@@ -1,6 +1,6 @@
 class BudgetsController < ApplicationController
   before_action :require_login
-  before_action :set_budget, only: [ :edit, :update ]
+  before_action :set_budget, only: [ :edit, :update, :destroy ]
 
   def index
     @budgets = current_user.budgets.includes(:category).order(effective_month: :desc)
@@ -29,6 +29,12 @@ class BudgetsController < ApplicationController
     else
       render :edit, status: :unprocessable_entity
     end
+  end
+
+  def destroy
+    @budget.destroy!
+
+    redirect_to budgets_path, notice: "Budget deleted"
   end
 
   private

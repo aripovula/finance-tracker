@@ -27,7 +27,12 @@
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= number_to_currency(budget.monthly_limit_cents / 100.0) %></td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= budget.effective_month.strftime("%B %Y") %></td>
             <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
-              <%= link_to "Edit", edit_budget_path(budget), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+              <div class="flex items-center justify-end gap-3">
+                <%= link_to "Edit", edit_budget_path(budget), class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+                <%= button_to "Delete", budget_path(budget), method: :delete,
+                      form: { data: { turbo_confirm: "Delete this budget?" } },
+                      class: "cursor-pointer border-0 bg-transparent p-0 font-medium text-red-600 hover:text-red-500" %>
+              </div>
             </td>
           </tr>
         <% end %>
