@@ -93,5 +93,28 @@ RSpec.describe "api/v1/budgets", type: :request do
         run_test!
       end
     end
+
+    delete "Deletes a budget" do
+      tags "Budgets"
+      security [ bearerAuth: [] ]
+      parameter name: :Authorization, in: :header, type: :string, required: true
+      parameter name: :id, in: :path, type: :integer, required: true
+
+      response "204", "budget deleted" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:one))[:access_token]}" }
+        let(:id) { budgets(:two).id }
+
+        run_test! do
+          expect(Budget.exists?(budgets(:two).id)).to be false
+        end
+      end
+
+      response "404", "budget not owned by user" do
+        let(:Authorization) { "Bearer #{AuthTokenService.new.issue_tokens(users(:two))[:access_token]}" }
+        let(:id) { budgets(:one).id }
+
+        run_test!
+      end
+    end
   end
 end

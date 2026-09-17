@@ -2,7 +2,7 @@ module Api
   module V1
     class BudgetsController < BaseController
       before_action :authenticate_user!
-      before_action :set_budget, only: [ :update ]
+      before_action :set_budget, only: [ :update, :destroy ]
 
       def index
         budgets = current_user.budgets.order(effective_month: :desc)
@@ -26,6 +26,12 @@ module Api
         else
           render_envelope(errors: @budget.errors.full_messages, status: :unprocessable_entity)
         end
+      end
+
+      def destroy
+        @budget.destroy!
+
+        head :no_content
       end
 
       private
