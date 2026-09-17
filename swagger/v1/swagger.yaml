@@ -153,6 +153,28 @@ paths:
               properties:
                 monthly_limit_cents:
                   type: integer
+    delete:
+      summary: Deletes a budget
+      tags:
+      - Budgets
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '204':
+          description: budget deleted
+        '404':
+          description: budget not owned by user
   "/api/v1/categories":
     get:
       summary: Lists all categories
