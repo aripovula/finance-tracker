@@ -1,8 +1,20 @@
 <% content_for :title, "Bank accounts" %>
+<% content_for :head do %>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+<% end %>
 
-<div class="mb-6">
-  <h1 class="text-2xl font-semibold text-gray-900">Bank accounts</h1>
-  <p class="mt-1 text-sm text-gray-500">Connect a bank account via Plaid to start importing transactions.</p>
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-gray-900">Bank accounts</h1>
+    <p class="mt-1 text-sm text-gray-500">Connect a bank account via Plaid to start importing transactions.</p>
+  </div>
+  <button type="button" data-controller="plaid-link"
+          data-plaid-link-link-token-url-value="<%= link_token_bank_accounts_path %>"
+          data-plaid-link-exchange-url-value="<%= bank_accounts_path %>"
+          data-action="plaid-link#connectBank"
+          class="cursor-pointer rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+    Connect a bank
+  </button>
 </div>
 
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
