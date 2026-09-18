@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+
+# Starts a local single-node Kafka broker (KRaft mode, no ZooKeeper) for development.
+#
+# Local dev deviates from CLAUDE.md's original "Docker Compose + Redpanda" decision:
+# Docker isn't available in this environment, and Redpanda has no reliable bare-metal
+# (non-container) install path, so we run plain Apache Kafka natively via asdf instead.
+# See CLAUDE.md §6/§9 for the resolved decision.
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+CONFIG=config/kafka/server.properties
+LOG_DIR=tmp/kafka-logs
+
+if [ ! -d "$LOG_DIR" ] || [ -z "$(ls -A "$LOG_DIR" 2>/dev/null)" ]; then
+  echo "No Kafka storage found at $LOG_DIR — formatting..."
+  CLUSTER_ID=$(kafka-storage random-uuid)
+  kafka-storage format --standalone -t "$CLUSTER_ID" -c "$CONFIG"
+fi
+
+exec kafka-server-start "$CONFIG"
