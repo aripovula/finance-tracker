@@ -38,4 +38,36 @@ RSpec.describe "Bank accounts", type: :request do
       expect(JSON.parse(response.body)["link_token"]).to eq("link-sandbox-123")
     end
   end
+
+  describe "POST /bank_accounts" do
+    it "creates a bank_account for the current user" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      fake_response = instance_double(Plaid::ItemPublicTokenExchangeResponse, access_token: "access-sandbox-123", item_id: "item-sandbox-123")
+      fake_client = instance_double(Plaid::PlaidApi, item_public_token_exchange: fake_response)
+      allow(PlaidClient).to receive(:client).and_return(fake_client)
+
+      expect {
+        post bank_accounts_path, params: {
+          public_token: "public-sandbox-123", institution_name: "Chase", account_id: "account-sandbox-new", mask: "4321"
+        }
+      }.to change { users(:one).bank_accounts.count }.by(1)
+
+      expect(response).to have_http_status(:created)
+    end
+
+    it "returns errors for a duplicate plaid_account_id" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      fake_response = instance_double(Plaid::ItemPublicTokenExchangeResponse, access_token: "access-sandbox-123", item_id: "item-sandbox-123")
+      fake_client = instance_double(Plaid::PlaidApi, item_public_token_exchange: fake_response)
+      allow(PlaidClient).to receive(:client).and_return(fake_client)
+
+      post bank_accounts_path, params: {
+        public_token: "public-sandbox-123", institution_name: "Chase", account_id: bank_accounts(:one).plaid_account_id
+      }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
 end

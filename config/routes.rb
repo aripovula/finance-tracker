@@ -20,7 +20,7 @@ Rails.application.routes.draw do
 
   resources :categories, only: [ :index ]
   resources :budgets, only: [ :index, :new, :create, :edit, :update, :destroy ]
-  resources :bank_accounts, only: [ :index ] do
+  resources :bank_accounts, only: [ :index, :create ] do
     collection do
       post :link_token
     end
