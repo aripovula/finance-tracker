@@ -1,0 +1,31 @@
+<% content_for :title, "Bank accounts" %>
+
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold text-gray-900">Bank accounts</h1>
+  <p class="mt-1 text-sm text-gray-500">Connect a bank account via Plaid to start importing transactions.</p>
+</div>
+
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+  <% if @bank_accounts.any? %>
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Institution</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Account</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Connected</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <% @bank_accounts.each do |bank_account| %>
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= bank_account.institution_name %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">&bull;&bull;&bull;&bull; <%= bank_account.mask %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= bank_account.created_at.strftime("%B %-d, %Y") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="px-6 py-8 text-center text-sm text-gray-500">No bank accounts connected yet.</p>
+  <% end %>
+</div>

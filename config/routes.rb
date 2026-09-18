@@ -20,6 +20,7 @@ Rails.application.routes.draw do
 
   resources :categories, only: [ :index ]
   resources :budgets, only: [ :index, :new, :create, :edit, :update, :destroy ]
+  resources :bank_accounts, only: [ :index ]
 
   namespace :api do
     namespace :v1 do
