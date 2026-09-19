@@ -48,6 +48,9 @@ gem "plaid", "~> 51.0"
 # Sign and verify JWT access tokens [https://github.com/jwt/ruby-jwt]
 gem "jwt", "~> 3.3"
 
+# Rails-idiomatic Kafka consumer framework [https://github.com/karafka/karafka]
+gem "karafka", "~> 2.5"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"

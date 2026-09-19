@@ -169,6 +169,44 @@ GEM
       sshkit (>= 1.23.0, < 2.0)
       thor (~> 1.3)
       zeitwerk (>= 2.6.18, < 3.0)
+    karafka (2.6.1)
+      karafka-core (>= 2.6.2, < 2.7.0)
+      karafka-rdkafka (>= 0.28.0)
+      waterdrop (>= 2.10.2, < 3.0.0)
+      zeitwerk (~> 2.3)
+    karafka-core (2.6.4)
+      karafka-rdkafka (>= 0.20.0)
+      logger (>= 1.6.0)
+    karafka-rdkafka (0.29.0)
+      ffi (~> 1.17.1)
+      json (> 2.0)
+      logger
+      mini_portile2 (~> 2.6)
+      rake (> 12)
+    karafka-rdkafka (0.29.0-aarch64-linux-gnu)
+      ffi (~> 1.17.1)
+      json (> 2.0)
+      logger
+      mini_portile2 (~> 2.6)
+      rake (> 12)
+    karafka-rdkafka (0.29.0-aarch64-linux-musl)
+      ffi (~> 1.17.1)
+      json (> 2.0)
+      logger
+      mini_portile2 (~> 2.6)
+      rake (> 12)
+    karafka-rdkafka (0.29.0-x86_64-linux-gnu)
+      ffi (~> 1.17.1)
+      json (> 2.0)
+      logger
+      mini_portile2 (~> 2.6)
+      rake (> 12)
+    karafka-rdkafka (0.29.0-x86_64-linux-musl)
+      ffi (~> 1.17.1)
+      json (> 2.0)
+      logger
+      mini_portile2 (~> 2.6)
+      rake (> 12)
     language_server-protocol (3.17.0.6)
     lint_roller (1.1.0)
     logger (1.7.0)
@@ -186,6 +224,7 @@ GEM
     mini_magick (5.4.0)
       logger
     mini_mime (1.1.5)
+    mini_portile2 (2.8.9)
     minitest (6.0.6)
       drb (~> 2.0)
       prism (~> 1.5)
@@ -416,6 +455,10 @@ GEM
     unicode-emoji (4.2.0)
     uri (1.1.1)
     useragent (0.16.11)
+    waterdrop (2.10.4)
+      karafka-core (>= 2.5.12, < 3.0.0)
+      karafka-rdkafka (>= 0.24.0)
+      zeitwerk (~> 2.3)
     web-console (4.3.0)
       actionview (>= 8.0.0)
       bindex (>= 0.4.0)
@@ -452,6 +495,7 @@ DEPENDENCIES
   json (~> 2.9)
   jwt (~> 3.3)
   kamal
+  karafka (~> 2.5)
   pg (~> 1.1)
   plaid (~> 51.0)
   propshaft
@@ -532,6 +576,13 @@ CHECKSUMS
   json-schema (6.2.0) sha256=e8bff46ed845a22c1ab2bd0d7eccf831c01fe23bb3920caa4c74db4306813666
   jwt (3.3.0) sha256=44cc34fbc341c148233cf66641522b4bce0dfb1ce55e8073f05c56f44f4ee546
   kamal (2.12.0) sha256=c51d1ab085e515470f98d0c0f043637122b5ebf76e8b610cb1fbbed0b7f9b8fa
+  karafka (2.6.1) sha256=a442ae87e5c3db5d38583151a51c8afcff27ce2d0bcb72b150ef15cdb0df91cb
+  karafka-core (2.6.4) sha256=e08166ca7ef12fadf0500f2a3aba63b5ba918a98533c3feaac9f43c90f159363
+  karafka-rdkafka (0.29.0) sha256=f2d39bbcc0f2bcd63dd0deea08ac4bb6ad31a714b7518c76493e724af0f0f2a2
+  karafka-rdkafka (0.29.0-aarch64-linux-gnu) sha256=4d7e7e8eb81a221c35d36d28bd6b02c666a901e064e11ca96f45800cd4575f29
+  karafka-rdkafka (0.29.0-aarch64-linux-musl) sha256=4dda233893d8157103fefb5697bd4cc86fec934ab678fa06090e68c1a49b7709
+  karafka-rdkafka (0.29.0-x86_64-linux-gnu) sha256=fbeb0ba7ed32bdce1ee18fb262b18b425594cb13a004eaf4e39e6a811e3eaac4
+  karafka-rdkafka (0.29.0-x86_64-linux-musl) sha256=5dcebdc8127bda180b4dc8224c96b189eae10c4c9ce05a5ac5f814900400ec07
   language_server-protocol (3.17.0.6) sha256=5ef2c0c138f8267e1bc631d3328347d354f96724b0af22f2c79516120443b7f0
   lint_roller (1.1.0) sha256=2c0c845b632a7d172cb849cc90c1bce937a28c5c8ccccb50dfd46a485003cc87
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
@@ -541,6 +592,7 @@ CHECKSUMS
   matrix (0.4.3) sha256=a0d5ab7ddcc1973ff690ab361b67f359acbb16958d1dc072b8b956a286564c5b
   mini_magick (5.4.0) sha256=f120af581d9ed4ec52c57f35a67a605d112bb1d8f582d1415b147fda42d11d78
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
+  mini_portile2 (2.8.9) sha256=0cd7c7f824e010c072e33f68bc02d85a00aeb6fce05bb4819c03dfd3c140c289
   minitest (6.0.6) sha256=153ea36d1d987a62942382b61075745042a2b3123b1cd48f4c3675af9cc7d6f1
   msgpack (1.8.4) sha256=4411c22d350dd1c20250f7eada3cca2695438c2f769cf0782f0cd065d90a3e7b
   multipart-post (2.4.1) sha256=9872d03a8e552020ca096adadbf5e3cb1cd1cdd6acd3c161136b8a5737cdb4a8
@@ -632,6 +684,7 @@ CHECKSUMS
   unicode-emoji (4.2.0) sha256=519e69150f75652e40bf736106cfbc8f0f73aa3fb6a65afe62fefa7f80b0f80f
   uri (1.1.1) sha256=379fa58d27ffb1387eaada68c749d1426738bd0f654d812fcc07e7568f5c57c6
   useragent (0.16.11) sha256=700e6413ad4bb954bb63547fa098dddf7b0ebe75b40cc6f93b8d54255b173844
+  waterdrop (2.10.4) sha256=aac28f7d88f99acb8eafe3333d6d672106194a8b29eecaa7f2db99326ed75adb
   web-console (4.3.0) sha256=e13b71301cdfc2093f155b5aa3a622db80b4672d1f2f713119cc7ec7ac6a6da4
   websocket (1.2.11) sha256=b7e7a74e2410b5e85c25858b26b3322f29161e300935f70a0e0d3c35e0462737
   websocket-driver (0.8.2) sha256=97c556b019bf3410b4961002ac501621e9322d3f8a7bc02161a09301cc4c4146
