@@ -35,6 +35,8 @@ Rails.application.routes.draw do
       post "plaid/link_token", to: "plaid#link_token"
       post "plaid/exchange_public_token", to: "plaid#exchange_public_token"
 
+      post "webhooks/plaid", to: "webhooks#plaid"
+
       resources :categories, only: [ :index ]
       resources :transactions, only: [ :index, :show ]
       resources :budgets, only: [ :index, :create, :update, :destroy ]
