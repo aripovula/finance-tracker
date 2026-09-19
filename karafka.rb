@@ -66,6 +66,15 @@ class KarafkaApp < Karafka::App
     # Uncomment this if you use Karafka with ActiveJob
     # You need to define the topic per each queue name you use
     # active_job_topic :default
+
+    # Each transaction-processing consumer reads the same topic in its own consumer
+    # group (CLAUDE.md §2.3), so a stalled/crashed consumer doesn't block the
+    # others and can replay from its own last committed offset on recovery.
+    consumer_group :categorizer_consumer do
+      topic :plaid_webhook_events do
+        consumer CategorizerConsumer
+      end
+    end
   end
 
   # Uncomment this if you want Karafka to manage your topics configuration
