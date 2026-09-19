@@ -300,6 +300,27 @@ paths:
           description: transaction found
         '404':
           description: transaction not owned by user
+  "/api/v1/webhooks/plaid":
+    post:
+      summary: Receives a Plaid webhook
+      tags:
+      - Webhooks
+      parameters:
+      - name: Plaid-Verification
+        in: header
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: webhook accepted and published to Kafka
+        '401':
+          description: invalid webhook signature
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
 components:
   securitySchemes:
     bearerAuth:
