@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_14_014335) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_19_024850) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -20,6 +20,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_14_014335) do
     t.string "mask"
     t.string "plaid_access_token", null: false
     t.string "plaid_account_id", null: false
+    t.string "plaid_cursor"
     t.string "plaid_item_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
