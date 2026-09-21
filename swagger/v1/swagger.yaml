@@ -193,6 +193,29 @@ paths:
           description: categories listed
         '401':
           description: missing or invalid token
+  "/api/v1/dashboard/monthly_summary":
+    get:
+      summary: Returns the current user's monthly spending by category
+      tags:
+      - Dashboard
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: month
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: monthly summary returned
+        '401':
+          description: missing or invalid token
   "/api/v1/plaid/link_token":
     post:
       summary: Creates a Plaid Link token
