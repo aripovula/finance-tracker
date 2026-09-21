@@ -21,7 +21,7 @@
         <% @transactions.each do |transaction| %>
           <tr class="hover:bg-gray-50">
             <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-              <%= transaction.merchant_name.presence || "Unknown" %>
+              <%= link_to transaction.merchant_name.presence || "Unknown", transaction_path(transaction), class: "hover:underline" %>
             </td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
               <% if transaction.category %>

@@ -26,4 +26,24 @@ RSpec.describe "Transactions", type: :request do
       expect(response.body).not_to include(transactions(:one).merchant_name)
     end
   end
+
+  describe "GET /transactions/:id" do
+    it "renders the transaction when it belongs to the current user" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get transaction_path(transactions(:one))
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(transactions(:one).merchant_name)
+    end
+
+    it "redirects with an alert when the transaction belongs to another user" do
+      post login_path, params: { email: users(:two).email, password: "password123" }
+
+      get transaction_path(transactions(:one))
+
+      expect(response).to redirect_to(root_path)
+      expect(flash[:alert]).to be_present
+    end
+  end
 end

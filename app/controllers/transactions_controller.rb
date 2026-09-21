@@ -5,6 +5,10 @@ class TransactionsController < ApplicationController
     @transactions = current_user_transactions.includes(:category, :bank_account).order(posted_at: :desc)
   end
 
+  def show
+    @transaction = current_user_transactions.find(params[:id])
+  end
+
   private
 
   def current_user_transactions

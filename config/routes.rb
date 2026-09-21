@@ -25,7 +25,7 @@ Rails.application.routes.draw do
       post :link_token
     end
   end
-  resources :transactions, only: [ :index ]
+  resources :transactions, only: [ :index, :show ]
 
   namespace :api do
     namespace :v1 do

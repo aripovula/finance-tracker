@@ -1,0 +1,34 @@
+<% content_for :title, "Transaction" %>
+
+<div class="mb-6">
+  <%= link_to "&larr; Back to transactions".html_safe, transactions_path, class: "text-sm text-gray-500 hover:text-gray-700" %>
+</div>
+
+<div class="max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+  <h1 class="text-xl font-semibold text-gray-900"><%= @transaction.merchant_name.presence || "Unknown merchant" %></h1>
+
+  <dl class="mt-6 divide-y divide-gray-200">
+    <div class="flex justify-between py-3">
+      <dt class="text-sm text-gray-500">Amount</dt>
+      <dd class="text-sm font-medium text-gray-900"><%= number_to_currency(@transaction.amount_cents / 100.0) %></dd>
+    </div>
+    <div class="flex justify-between py-3">
+      <dt class="text-sm text-gray-500">Category</dt>
+      <dd class="text-sm font-medium text-gray-900"><%= @transaction.category&.name || "Uncategorized" %></dd>
+    </div>
+    <div class="flex justify-between py-3">
+      <dt class="text-sm text-gray-500">Status</dt>
+      <dd class="text-sm font-medium text-gray-900"><%= @transaction.status.capitalize %></dd>
+    </div>
+    <div class="flex justify-between py-3">
+      <dt class="text-sm text-gray-500">Posted</dt>
+      <dd class="text-sm font-medium text-gray-900"><%= @transaction.posted_at&.strftime("%B %-d, %Y") %></dd>
+    </div>
+    <div class="flex justify-between py-3">
+      <dt class="text-sm text-gray-500">Bank account</dt>
+      <dd class="text-sm font-medium text-gray-900">
+        <%= @transaction.bank_account.institution_name %> &bull;&bull;&bull;&bull; <%= @transaction.bank_account.mask %>
+      </dd>
+    </div>
+  </dl>
+</div>
