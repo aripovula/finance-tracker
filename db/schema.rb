@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_19_024850) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_235253) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -47,6 +47,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_024850) do
     t.string "plaid_category_id"
     t.datetime "updated_at", null: false
     t.index ["parent_category_id"], name: "index_categories_on_parent_category_id"
+  end
+
+  create_table "monthly_summaries", force: :cascade do |t|
+    t.bigint "category_id", null: false
+    t.datetime "created_at", null: false
+    t.date "month", null: false
+    t.integer "total_spent_cents", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["category_id"], name: "index_monthly_summaries_on_category_id"
+    t.index ["user_id", "category_id", "month"], name: "index_monthly_summaries_on_user_category_month", unique: true
+    t.index ["user_id"], name: "index_monthly_summaries_on_user_id"
   end
 
   create_table "refresh_tokens", force: :cascade do |t|
@@ -88,6 +100,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_19_024850) do
   add_foreign_key "budgets", "categories"
   add_foreign_key "budgets", "users"
   add_foreign_key "categories", "categories", column: "parent_category_id"
+  add_foreign_key "monthly_summaries", "categories"
+  add_foreign_key "monthly_summaries", "users"
   add_foreign_key "refresh_tokens", "users"
   add_foreign_key "transactions", "bank_accounts"
   add_foreign_key "transactions", "categories"
