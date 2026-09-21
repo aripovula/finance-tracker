@@ -13,6 +13,7 @@
     <%= link_to "Categories", categories_path, class: nav_link_class(current_page?(categories_path)) %>
     <%= link_to "Budgets", budgets_path, class: nav_link_class(request.path.start_with?(budgets_path)) %>
     <%= link_to "Bank accounts", bank_accounts_path, class: nav_link_class(current_page?(bank_accounts_path)) %>
+    <%= link_to "Transactions", transactions_path, class: nav_link_class(current_page?(transactions_path)) %>
   </nav>
 
   <div class="border-t border-gray-200 p-4">
