@@ -25,6 +25,20 @@ RSpec.describe "Transactions", type: :request do
 
       expect(response.body).not_to include(transactions(:one).merchant_name)
     end
+
+    it "shows a charge as a negative amount and a credit as a positive one" do
+      credit = Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-credit-1",
+        amount_cents: -5000, merchant_name: "Refund Co", posted_at: Time.current, status: "posted"
+      )
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get transactions_path
+
+      expect(response.body).to include("-$25.99") # transactions(:one), amount_cents: 2599 (a charge)
+      expect(response.body).to include("+$50.00") # the credit created above
+      expect(credit.amount_cents).to be_negative
+    end
   end
 
   describe "GET /transactions/:id" do
