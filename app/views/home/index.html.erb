@@ -5,6 +5,18 @@
   <p class="mt-1 text-sm text-gray-500">Signed in as <%= current_user.email %></p>
 </div>
 
+<% if @budget_alerts.any? %>
+  <div class="mb-6 space-y-2">
+    <% @budget_alerts.each do |alert| %>
+      <div class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
+        <span class="font-medium"><%= alert.budget.category.name %></span> is over budget this month:
+        spent <%= number_to_currency(alert.spent_cents / 100.0) %> of a
+        <%= number_to_currency(alert.budget.monthly_limit_cents / 100.0) %> limit.
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
 <div class="mb-6">
   <h2 class="text-base font-semibold text-gray-900"><%= Date.current.strftime("%B %Y") %> spending by category</h2>
   <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>

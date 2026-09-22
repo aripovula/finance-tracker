@@ -35,5 +35,23 @@ RSpec.describe "Home", type: :request do
 
       expect(response.body).to include("No spending data yet")
     end
+
+    it "shows an active budget alert" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get root_path
+
+      expect(response.body).to include("is over budget this month")
+      expect(response.body).to include(categories(:dining).name)
+    end
+
+    it "does not show a dismissed budget alert" do
+      budget_alerts(:one).update!(dismissed_at: Time.current)
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get root_path
+
+      expect(response.body).not_to include("is over budget this month")
+    end
   end
 end

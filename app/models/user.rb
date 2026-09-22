@@ -2,6 +2,7 @@ class User < ApplicationRecord
   has_secure_password
   has_many :bank_accounts
   has_many :budgets
+  has_many :budget_alerts, through: :budgets
   has_many :monthly_summaries
   has_many :refresh_tokens
 
