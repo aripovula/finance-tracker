@@ -5,9 +5,35 @@
   <p class="mt-1 text-sm text-gray-500">Signed in as <%= current_user.email %></p>
 </div>
 
-<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-  <h2 class="text-base font-semibold text-gray-900">Welcome to Finance Tracker</h2>
-  <p class="mt-2 text-sm text-gray-600">
-    Browse your <%= link_to "categories", categories_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %> to get started.
-  </p>
+<div class="mb-6">
+  <h2 class="text-base font-semibold text-gray-900"><%= Date.current.strftime("%B %Y") %> spending by category</h2>
+  <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>
+</div>
+
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+  <% if @monthly_summaries.any? %>
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Spent</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <% @monthly_summaries.each do |summary| %>
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= summary.category.name %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= number_to_currency(summary.total_spent_cents / 100.0) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="px-6 py-8 text-center text-sm text-gray-500">
+      No spending data yet for this month. Browse your
+      <%= link_to "categories", categories_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+      or connect a <%= link_to "bank account", bank_accounts_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+      to get started.
+    </p>
+  <% end %>
 </div>
