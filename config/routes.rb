@@ -26,6 +26,7 @@ Rails.application.routes.draw do
     end
   end
   resources :transactions, only: [ :index, :show ]
+  resources :budget_alerts, only: [ :update ]
 
   namespace :api do
     namespace :v1 do

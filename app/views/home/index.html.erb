@@ -8,10 +8,14 @@
 <% if @budget_alerts.any? %>
   <div class="mb-6 space-y-2">
     <% @budget_alerts.each do |alert| %>
-      <div class="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
-        <span class="font-medium"><%= alert.budget.category.name %></span> is over budget this month:
-        spent <%= number_to_currency(alert.spent_cents / 100.0) %> of a
-        <%= number_to_currency(alert.budget.monthly_limit_cents / 100.0) %> limit.
+      <div class="flex items-center justify-between rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p>
+          <span class="font-medium"><%= alert.budget.category.name %></span> is over budget this month:
+          spent <%= number_to_currency(alert.spent_cents / 100.0) %> of a
+          <%= number_to_currency(alert.budget.monthly_limit_cents / 100.0) %> limit.
+        </p>
+        <%= button_to "Dismiss", budget_alert_path(alert), method: :patch,
+              class: "cursor-pointer border-0 bg-transparent p-0 font-medium text-red-800 hover:text-red-900" %>
       </div>
     <% end %>
   </div>
