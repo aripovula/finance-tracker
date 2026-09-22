@@ -75,6 +75,12 @@ class KarafkaApp < Karafka::App
         consumer CategorizerConsumer
       end
     end
+
+    consumer_group :budget_checker_consumer do
+      topic :plaid_webhook_events do
+        consumer BudgetCheckerConsumer
+      end
+    end
   end
 
   # Uncomment this if you want Karafka to manage your topics configuration
