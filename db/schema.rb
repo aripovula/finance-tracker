@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_22_025512) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_22_205948) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -86,6 +86,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_025512) do
     t.bigint "bank_account_id", null: false
     t.bigint "category_id"
     t.datetime "created_at", null: false
+    t.datetime "flagged_anomaly_at"
     t.string "merchant_name"
     t.string "plaid_transaction_id", null: false
     t.datetime "posted_at"
