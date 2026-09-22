@@ -1,6 +1,7 @@
 class Budget < ApplicationRecord
   belongs_to :user
   belongs_to :category
+  has_many :budget_alerts, dependent: :destroy
 
   validates :monthly_limit_cents, presence: true
   validates :effective_month, presence: true
