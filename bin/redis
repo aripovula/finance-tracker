@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+# Starts a local Redis server for development (alert-throttle key only — see
+# CLAUDE.md §3/§6). Installed natively via asdf, no Docker — same rationale as
+# bin/kafka.
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+mkdir -p tmp/redis
+
+exec redis-server --port 6379 --dir tmp/redis
