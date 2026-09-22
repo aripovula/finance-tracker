@@ -81,6 +81,12 @@ class KarafkaApp < Karafka::App
         consumer BudgetCheckerConsumer
       end
     end
+
+    consumer_group :anomaly_detector_consumer do
+      topic :plaid_webhook_events do
+        consumer AnomalyDetectorConsumer
+      end
+    end
   end
 
   # Uncomment this if you want Karafka to manage your topics configuration
