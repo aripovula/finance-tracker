@@ -39,6 +39,15 @@ RSpec.describe "Transactions", type: :request do
       expect(response.body).to include("+$50.00") # the credit created above
       expect(credit.amount_cents).to be_negative
     end
+
+    it "shows an Unusual badge for a flagged transaction" do
+      transactions(:one).update!(flagged_anomaly_at: Time.current)
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get transactions_path
+
+      expect(response.body).to include("Unusual")
+    end
   end
 
   describe "GET /transactions/:id" do
@@ -49,6 +58,15 @@ RSpec.describe "Transactions", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(transactions(:one).merchant_name)
+    end
+
+    it "shows an Unusual badge when the transaction is flagged" do
+      transactions(:one).update!(flagged_anomaly_at: Time.current)
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get transaction_path(transactions(:one))
+
+      expect(response.body).to include("Unusual")
     end
 
     it "redirects with an alert when the transaction belongs to another user" do

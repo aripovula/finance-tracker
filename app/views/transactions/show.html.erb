@@ -5,7 +5,12 @@
 </div>
 
 <div class="max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-  <h1 class="text-xl font-semibold text-gray-900"><%= @transaction.merchant_name.presence || "Unknown merchant" %></h1>
+  <h1 class="text-xl font-semibold text-gray-900">
+    <%= @transaction.merchant_name.presence || "Unknown merchant" %>
+    <% if @transaction.flagged_anomaly_at? %>
+      <span class="ml-1 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Unusual</span>
+    <% end %>
+  </h1>
 
   <dl class="mt-6 divide-y divide-gray-200">
     <div class="flex justify-between py-3">
