@@ -27,6 +27,44 @@ RSpec.describe CategorizerConsumer do
       expect(transaction.reload.category).to eq(categories(:restaurants))
     end
 
+    it "refines a low-confidence generic loan payment by merchant name" do
+      bank_account = bank_accounts(:one)
+      payload = {
+        "webhook_type" => "TRANSACTIONS", "webhook_code" => "SYNC_UPDATES_AVAILABLE",
+        "item_id" => bank_account.plaid_item_id
+      }
+      allow(TransactionSyncService).to receive(:new).and_return(instance_double(TransactionSyncService, call: nil))
+      transaction = Transaction.create!(
+        bank_account: bank_account, plaid_transaction_id: "txn-autopay",
+        amount_cents: 207_850, posted_at: Time.current, status: "posted", merchant_name: "AUTOMATIC PAYMENT - THANK YOU",
+        raw_payload: { "personal_finance_category" => { "detailed" => "LOAN_PAYMENTS_OTHER_PAYMENT", "confidence_level" => "LOW" } }
+      )
+
+      consumer.messages = [ message_with(payload) ]
+      consumer.consume
+
+      expect(transaction.reload.category).to eq(categories(:credit_card_payment))
+    end
+
+    it "refines a low-confidence generic transfer-in by merchant name" do
+      bank_account = bank_accounts(:one)
+      payload = {
+        "webhook_type" => "TRANSACTIONS", "webhook_code" => "SYNC_UPDATES_AVAILABLE",
+        "item_id" => bank_account.plaid_item_id
+      }
+      allow(TransactionSyncService).to receive(:new).and_return(instance_double(TransactionSyncService, call: nil))
+      transaction = Transaction.create!(
+        bank_account: bank_account, plaid_transaction_id: "txn-interest",
+        amount_cents: -422, posted_at: Time.current, status: "posted", merchant_name: "INTRST PYMNT",
+        raw_payload: { "personal_finance_category" => { "detailed" => "TRANSFER_IN_OTHER_TRANSFER_IN", "confidence_level" => "LOW" } }
+      )
+
+      consumer.messages = [ message_with(payload) ]
+      consumer.consume
+
+      expect(transaction.reload.category).to eq(categories(:interest_earned))
+    end
+
     it "does nothing for non-transactions webhooks" do
       payload = { "webhook_type" => "ITEM", "webhook_code" => "ERROR" }
       consumer.messages = [ message_with(payload) ]

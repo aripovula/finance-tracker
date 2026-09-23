@@ -14,3 +14,11 @@ investment_funds:
 account_transfer:
   name: Account Transfer
   plaid_category_id: TRANSFER_OUT_ACCOUNT_TRANSFER
+
+credit_card_payment:
+  name: Credit Card Payment
+  plaid_category_id: LOAN_PAYMENTS_CREDIT_CARD_PAYMENT
+
+interest_earned:
+  name: Interest Earned
+  plaid_category_id: INCOME_INTEREST_EARNED
