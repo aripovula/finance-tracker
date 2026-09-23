@@ -1,6 +1,6 @@
 module HomeHelper
   BUDGET_STATUS_COLORS = { critical: "#dc2626", warning: "#ca8a04", good: "#16a34a" }.freeze
-  CATEGORY_SERIES_COLORS = [ "#4f46e5", "#f97316", "#0d9488", "#db2777", "#0284c7", "#9ca3af" ].freeze
+  CATEGORY_SERIES_COLORS = [ "#4f46e5", "#2563eb", "#0d9488", "#9333ea", "#e11d48", "#6b7280" ].freeze
 
   def budget_status_color(status)
     BUDGET_STATUS_COLORS.fetch(status, "#6b7280")
