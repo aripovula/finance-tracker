@@ -7,6 +7,9 @@ module HomeHelper
   # Categories pinned to a specific color (by name) instead of their chart rank,
   # so they stay visually distinct and consistent across months.
   CATEGORY_COLOR_OVERRIDES = { "Account Transfer" => "#38bdf8", "Other" => "#57534e" }.freeze
+  # Plaid gives no cleaner field for these (merchant_name/payment_meta are all
+  # null on Sandbox transfers), so clean up the raw bank narration for display.
+  INVESTMENT_TRANSFER_LABELS = { /CD DEPOSIT/i => "CD Deposit" }.freeze
 
   def budget_status_color(status)
     BUDGET_STATUS_COLORS.fetch(status, "#6b7280")
@@ -14,6 +17,18 @@ module HomeHelper
 
   def category_series_color(name, index)
     CATEGORY_COLOR_OVERRIDES[name] || CATEGORY_SERIES_COLORS[index % CATEGORY_SERIES_COLORS.size]
+  end
+
+  # Abbreviates large dollar amounts (e.g. "$11.6k") so y-axis tick labels stay
+  # narrow enough for the chart's left margin.
+  def chart_tick_label(cents)
+    dollars = cents / 100.0
+    dollars >= 1000 ? "$#{number_with_precision(dollars / 1000.0, precision: 1)}k" : number_to_currency(dollars, precision: 0)
+  end
+
+  def investment_transfer_label(transaction)
+    match = INVESTMENT_TRANSFER_LABELS.find { |pattern, _| transaction.merchant_name.to_s.match?(pattern) }
+    match ? match.last : transaction.merchant_name.presence || "Investment transfer"
   end
 
   # Rounds only the top two corners, so stacked segments below it stay flush.

@@ -127,14 +127,14 @@
     <% end %>
   </div>
 
-  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-controller="category-chart">
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:row-span-2 lg:self-start" data-controller="category-chart">
     <div class="mb-4">
       <h2 class="text-base font-semibold text-gray-900">Spending by category</h2>
       <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>
     </div>
-    <% breakdown = @dashboard.category_breakdown %>
+    <% breakdown = @dashboard.category_breakdown(months_count: 4) %>
     <% if breakdown[:rows].any? { |row| row[:values].sum.positive? } %>
-      <% chart_width = 480; chart_height = 200; bottom_pad = 24; top_pad = 10 %>
+      <% chart_width = 480; chart_height = 620; bottom_pad = 24; top_pad = 10 %>
       <% plot_height = chart_height - bottom_pad - top_pad %>
       <% max_total = [ breakdown[:rows].map { |row| row[:values].sum }.max, 1 ].max %>
       <% band = chart_width / breakdown[:rows].size.to_f %>
@@ -179,35 +179,44 @@
       </p>
     <% end %>
   </div>
-</div>
 
-<div class="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-  <div class="mb-4 flex items-baseline justify-between">
-    <h2 class="text-base font-semibold text-gray-900">Spending trend</h2>
-    <span class="text-xs text-gray-500">Trailing 12 months</span>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-4 flex items-baseline justify-between">
+      <h2 class="text-base font-semibold text-gray-900">Spending trend</h2>
+      <span class="text-xs text-gray-500">Last 4 months</span>
+    </div>
+    <% trend = @dashboard.spend_trend(months_count: 4) %>
+    <% if trend.any? { |point| point[:total_spent_cents].positive? } %>
+      <% chart_width = 480; chart_height = 320; left_pad = 42; right_pad = 8; top_pad = 12; bottom_pad = 24 %>
+      <% plot_width = chart_width - left_pad - right_pad; plot_height = chart_height - top_pad - bottom_pad %>
+      <% max_value = [ trend.map { |point| point[:total_spent_cents] }.max, 1 ].max %>
+      <% min_value = trend.map { |point| point[:total_spent_cents] }.min %>
+      <% axis_min = min_value - (min_value * 0.02) %>
+      <% axis_range = [ max_value - axis_min, 1 ].max %>
+      <% step = trend.size > 1 ? plot_width / (trend.size - 1).to_f : 0 %>
+      <% points = trend.each_with_index.map { |point, i| [ (left_pad + i * step).round(2), (top_pad + plot_height - ((point[:total_spent_cents] - axis_min) / axis_range.to_f) * plot_height).round(2) ] } %>
+      <% line_path = points.each_with_index.map { |(x, y), i| "#{i.zero? ? "M" : "L"} #{x},#{y}" }.join(" ") %>
+      <% area_path = "#{line_path} L #{points.last[0]},#{top_pad + plot_height} L #{points.first[0]},#{top_pad + plot_height} Z" %>
+      <% y_ticks = [ axis_min, (axis_min + max_value) / 2.0, max_value ] %>
+      <svg viewBox="0 0 <%= chart_width %> <%= chart_height %>" class="w-full">
+        <% y_ticks.each do |tick_value| %>
+          <% tick_y = (top_pad + plot_height - ((tick_value - axis_min) / axis_range.to_f) * plot_height).round(2) %>
+          <line x1="<%= left_pad %>" y1="<%= tick_y %>" x2="<%= chart_width - right_pad %>" y2="<%= tick_y %>" stroke="#e5e7eb" stroke-width="1"/>
+          <text x="<%= left_pad - 6 %>" y="<%= tick_y + 3 %>" font-size="9" text-anchor="end" fill="#6b7280"><%= chart_tick_label(tick_value) %></text>
+        <% end %>
+        <path d="<%= area_path %>" fill="#4f46e5" fill-opacity="0.08" stroke="none"/>
+        <path d="<%= line_path %>" fill="none" stroke="#4f46e5" stroke-width="2"/>
+        <% last_x, last_y = points.last %>
+        <circle cx="<%= last_x %>" cy="<%= last_y %>" r="3.5" fill="#4f46e5"/>
+        <% trend.each_with_index do |point, i| %>
+          <% next unless trend.size <= 6 || i.even? || i == trend.size - 1 %>
+          <text x="<%= points[i][0] %>" y="<%= chart_height - 6 %>" font-size="10" text-anchor="middle" fill="#6b7280"><%= point[:month].strftime("%b") %></text>
+        <% end %>
+      </svg>
+    <% else %>
+      <p class="px-2 py-8 text-center text-sm text-gray-500">No spending data yet.</p>
+    <% end %>
   </div>
-  <% trend = @dashboard.spend_trend %>
-  <% if trend.any? { |point| point[:total_spent_cents].positive? } %>
-    <% chart_width = 480; chart_height = 140; left_pad = 8; right_pad = 8; top_pad = 12; bottom_pad = 24 %>
-    <% plot_width = chart_width - left_pad - right_pad; plot_height = chart_height - top_pad - bottom_pad %>
-    <% max_value = [ trend.map { |point| point[:total_spent_cents] }.max, 1 ].max %>
-    <% step = trend.size > 1 ? plot_width / (trend.size - 1).to_f : 0 %>
-    <% points = trend.each_with_index.map { |point, i| [ (left_pad + i * step).round(2), (top_pad + plot_height - (point[:total_spent_cents] / max_value.to_f) * plot_height).round(2) ] } %>
-    <% line_path = points.each_with_index.map { |(x, y), i| "#{i.zero? ? "M" : "L"} #{x},#{y}" }.join(" ") %>
-    <% area_path = "#{line_path} L #{points.last[0]},#{top_pad + plot_height} L #{points.first[0]},#{top_pad + plot_height} Z" %>
-    <svg viewBox="0 0 <%= chart_width %> <%= chart_height %>" class="w-full">
-      <path d="<%= area_path %>" fill="#4f46e5" fill-opacity="0.08" stroke="none"/>
-      <path d="<%= line_path %>" fill="none" stroke="#4f46e5" stroke-width="2"/>
-      <% last_x, last_y = points.last %>
-      <circle cx="<%= last_x %>" cy="<%= last_y %>" r="3.5" fill="#4f46e5"/>
-      <% trend.each_with_index do |point, i| %>
-        <% next unless i.even? || i == trend.size - 1 %>
-        <text x="<%= points[i][0] %>" y="<%= chart_height - 6 %>" font-size="10" text-anchor="middle" fill="#6b7280"><%= point[:month].strftime("%b") %></text>
-      <% end %>
-    </svg>
-  <% else %>
-    <p class="px-2 py-8 text-center text-sm text-gray-500">No spending data yet.</p>
-  <% end %>
 </div>
 
 <div class="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -221,7 +230,7 @@
       <% recent_investments.each do |transaction| %>
         <li class="flex items-center justify-between py-3">
           <div>
-            <p class="text-sm font-medium text-gray-900"><%= transaction.merchant_name.presence || "Investment transfer" %></p>
+            <p class="text-sm font-medium text-gray-900"><%= investment_transfer_label(transaction) %></p>
             <p class="text-xs text-gray-500"><%= transaction.posted_at.strftime("%b %-d, %Y") %></p>
           </div>
           <p class="text-sm font-semibold text-gray-900"><%= number_to_currency(transaction.amount_cents / 100.0) %></p>

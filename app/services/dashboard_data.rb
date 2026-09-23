@@ -18,17 +18,17 @@ class DashboardData
   end
 
   def total_budget_cents
-    budgets_for(@month).sum(:monthly_limit_cents)
+    budget_comparisons.sum { |comparison| comparison[:budget_cents] }
   end
 
   def budget_remaining_cents
-    total_budget_cents - spent_this_month_cents
+    total_budget_cents - budget_comparisons.sum { |comparison| comparison[:spent_cents] }
   end
 
   def budget_used_pct
     return nil if total_budget_cents.zero?
 
-    (spent_this_month_cents / total_budget_cents.to_f) * 100
+    (budget_comparisons.sum { |comparison| comparison[:spent_cents] } / total_budget_cents.to_f) * 100
   end
 
   def over_budget_budgets
@@ -55,21 +55,47 @@ class DashboardData
     invested_for(@month - 1.month)
   end
 
+  # For each category with either a user-set budget or spend this month: compare
+  # against the user's budget if they set one, otherwise fall back to the
+  # trailing 3-month average (skipped if that average is zero - nothing to
+  # compare against yet). This keeps every spending category represented, not
+  # just the handful the user has explicitly budgeted.
   def budget_comparisons
-    summaries_by_category = monthly_summaries_for(@month).index_by(&:category_id)
+    @budget_comparisons ||= begin
+      summaries_by_category = monthly_summaries_for(@month).index_by(&:category_id)
+      user_budgets_by_category = budgets_for(@month).index_by(&:category_id)
+      categories_by_id = Category.where(id: (summaries_by_category.keys + user_budgets_by_category.keys).uniq).index_by(&:id)
 
-    budgets_for(@month).includes(:category).order("categories.name").map do |budget|
-      spent_cents = summaries_by_category[budget.category_id]&.total_spent_cents || 0
-      delta_pct = ((spent_cents - budget.monthly_limit_cents) / budget.monthly_limit_cents.to_f) * 100
+      comparisons = categories_by_id.filter_map do |category_id, category|
+        spent_cents = summaries_by_category[category_id]&.total_spent_cents || 0
+        user_budget = user_budgets_by_category[category_id]
 
-      {
-        category_name: budget.category.name,
-        budget_cents: budget.monthly_limit_cents,
-        spent_cents: spent_cents,
-        delta_pct: delta_pct,
-        status: budget_status(delta_pct)
-      }
+        if user_budget
+          budget_cents = user_budget.monthly_limit_cents
+          category_name = category.name
+        else
+          budget_cents = trailing_average_cents(category)
+          next if budget_cents.zero?
+
+          category_name = "#{category.name} (avg)"
+        end
+
+        delta_pct = ((spent_cents - budget_cents) / budget_cents.to_f) * 100
+
+        { category_name: category_name, budget_cents: budget_cents, spent_cents: spent_cents, delta_pct: delta_pct, status: budget_status(delta_pct) }
+      end
+
+      comparisons.sort_by { |comparison| comparison[:category_name] }
     end
+  end
+
+  # Average monthly spend for a category over the trailing N months (missing
+  # months count as zero, matching spend_trend/category_breakdown).
+  def trailing_average_cents(category, months: 3)
+    window = (1..months).map { |offset| @month - offset.months }
+    total = @user.monthly_summaries.where(category: category, month: window).sum(:total_spent_cents)
+
+    (total / months.to_f).round
   end
 
   def category_breakdown(months_count: 5)

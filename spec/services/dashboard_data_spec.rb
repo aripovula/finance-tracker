@@ -33,14 +33,21 @@ RSpec.describe DashboardData do
   end
 
   describe "#total_budget_cents, #budget_remaining_cents, #budget_used_pct" do
-    it "sums this month's budgets and computes remaining/used" do
+    it "sums this month's budgets and computes remaining/used from budgeted categories only" do
+      # Spend in a category with no budget must not affect remaining/used - only
+      # spend within budgeted categories (dining, restaurants) counts.
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:account_transfer), month: budgets(:one).effective_month, total_spent_cents: 999_999
+      )
+
       travel_to budgets(:one).effective_month + 10.days do
         data = described_class.new(users(:one))
         expected_total = budgets(:one).monthly_limit_cents + budgets(:two).monthly_limit_cents
+        expected_spent = monthly_summaries(:one).total_spent_cents
 
         expect(data.total_budget_cents).to eq(expected_total)
-        expect(data.budget_remaining_cents).to eq(expected_total - data.spent_this_month_cents)
-        expect(data.budget_used_pct).to eq((data.spent_this_month_cents / expected_total.to_f) * 100)
+        expect(data.budget_remaining_cents).to eq(expected_total - expected_spent)
+        expect(data.budget_used_pct).to eq((expected_spent / expected_total.to_f) * 100)
       end
     end
 
@@ -51,6 +58,33 @@ RSpec.describe DashboardData do
         expect(data.total_budget_cents).to eq(0)
         expect(data.budget_used_pct).to be_nil
       end
+    end
+
+    it "folds in trailing-average fallback categories that have no user budget" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month, total_spent_cents: 12_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 1.month, total_spent_cents: 9_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 2.months, total_spent_cents: 3_000)
+
+      travel_to month + 10.days do
+        data = described_class.new(users(:one))
+        budgeted_total = budgets(:one).monthly_limit_cents + budgets(:two).monthly_limit_cents
+
+        expect(data.total_budget_cents).to eq(budgeted_total + 4_000) # (9_000 + 3_000 + 0) / 3
+      end
+    end
+  end
+
+  describe "#trailing_average_cents" do
+    it "averages total_spent_cents over the trailing N months, treating missing months as zero" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 1.month, total_spent_cents: 9_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 2.months, total_spent_cents: 3_000)
+      # month - 3.months has no summary, counted as zero
+
+      data = described_class.new(users(:one), month: month)
+
+      expect(data.trailing_average_cents(categories(:account_transfer))).to eq(4_000)
     end
   end
 
@@ -109,6 +143,32 @@ RSpec.describe DashboardData do
         restaurants = data.budget_comparisons.find { |c| c[:category_name] == categories(:restaurants).name }
 
         expect(restaurants[:status]).to eq(:critical)
+      end
+    end
+
+    it "falls back to the trailing 3-month average when there is no user budget" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month, total_spent_cents: 12_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 1.month, total_spent_cents: 9_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 2.months, total_spent_cents: 3_000)
+
+      travel_to month + 10.days do
+        data = described_class.new(users(:one))
+        transfer = data.budget_comparisons.find { |c| c[:category_name] == "#{categories(:account_transfer).name} (avg)" }
+
+        expect(transfer[:spent_cents]).to eq(12_000)
+        expect(transfer[:budget_cents]).to eq(4_000)
+      end
+    end
+
+    it "excludes a category with spend but no budget and no trailing history" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month, total_spent_cents: 12_000)
+
+      travel_to month + 10.days do
+        data = described_class.new(users(:one))
+
+        expect(data.budget_comparisons.map { |c| c[:category_name] }).not_to include("#{categories(:account_transfer).name} (avg)")
       end
     end
   end

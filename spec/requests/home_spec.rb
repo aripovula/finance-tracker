@@ -119,7 +119,27 @@ RSpec.describe "Home", type: :request do
         get root_path
 
         expect(response.body).to include("Spending trend")
-        expect(response.body).to include("Trailing 12 months")
+        expect(response.body).to include("Last 4 months")
+        expect(response.body).to include("$0")
+        expect(response.body).to include("$46")
+      end
+    end
+
+    it "zooms the spending trend y-axis to its minimum instead of starting at zero" do
+      this_month = Date.new(2026, 9, 1)
+      MonthlySummary.create!(user: users(:one), category: categories(:restaurants), month: this_month, total_spent_cents: 10_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:restaurants), month: this_month - 1.month, total_spent_cents: 20_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:restaurants), month: this_month - 2.months, total_spent_cents: 15_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:restaurants), month: this_month - 3.months, total_spent_cents: 12_000)
+
+      travel_to this_month + 10.days do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        # The y-axis floor is 98% of the window's lowest month, not zero, so a
+        # literal "$0" tick should not appear when every month has real spend.
+        expect(response.body).not_to include(">$0<")
       end
     end
 
@@ -136,8 +156,25 @@ RSpec.describe "Home", type: :request do
         get root_path
 
         expect(response.body).to include("Investment transfers")
-        expect(response.body).to include("CD DEPOSIT .INITIAL.")
+        expect(response.body).to include("CD Deposit")
+        expect(response.body).not_to include("CD DEPOSIT .INITIAL.")
         expect(response.body).to include("$650.00")
+      end
+    end
+
+    it "shows other investment transfer merchant names as-is" do
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-brokerage",
+        category: categories(:investment_funds), status: "posted", amount_cents: 30_000,
+        posted_at: Date.new(2026, 9, 12), merchant_name: "TRANSFER TO BROKERAGE"
+      )
+
+      travel_to Date.new(2026, 9, 20) do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("TRANSFER TO BROKERAGE")
       end
     end
 
