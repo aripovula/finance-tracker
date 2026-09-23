@@ -29,6 +29,18 @@
       <%= kpi_delta_text(@dashboard.spent_this_month_cents, @dashboard.spent_last_month_cents) %>
     </p>
   </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm font-medium text-gray-500">Budget remaining</p>
+    <p class="mt-2 text-2xl font-semibold text-gray-900"><%= number_to_currency(@dashboard.budget_remaining_cents / 100.0) %></p>
+    <p class="mt-1 text-xs font-medium text-gray-500">
+      <% if @dashboard.budget_used_pct %>
+        <%= number_with_precision(@dashboard.budget_used_pct, precision: 0) %>% of <%= number_to_currency(@dashboard.total_budget_cents / 100.0) %> used
+      <% else %>
+        No budgets set for this month
+      <% end %>
+    </p>
+  </div>
 </div>
 
 <div class="mb-6">

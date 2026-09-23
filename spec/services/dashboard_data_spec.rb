@@ -31,4 +31,26 @@ RSpec.describe DashboardData do
       end
     end
   end
+
+  describe "#total_budget_cents, #budget_remaining_cents, #budget_used_pct" do
+    it "sums this month's budgets and computes remaining/used" do
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:one))
+        expected_total = budgets(:one).monthly_limit_cents + budgets(:two).monthly_limit_cents
+
+        expect(data.total_budget_cents).to eq(expected_total)
+        expect(data.budget_remaining_cents).to eq(expected_total - data.spent_this_month_cents)
+        expect(data.budget_used_pct).to eq((data.spent_this_month_cents / expected_total.to_f) * 100)
+      end
+    end
+
+    it "returns nil budget_used_pct when there is no budget for the month" do
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:two))
+
+        expect(data.total_budget_cents).to eq(0)
+        expect(data.budget_used_pct).to be_nil
+      end
+    end
+  end
 end

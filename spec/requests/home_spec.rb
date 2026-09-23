@@ -28,6 +28,17 @@ RSpec.describe "Home", type: :request do
       end
     end
 
+    it "shows the budget-remaining KPI tile" do
+      travel_to budgets(:one).effective_month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Budget remaining")
+        expect(response.body).to include("used")
+      end
+    end
+
     it "shows this month's spending by category when a summary exists" do
       travel_to monthly_summaries(:one).month do
         post login_path, params: { email: users(:one).email, password: "password123" }
