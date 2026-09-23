@@ -91,6 +91,17 @@ class DashboardData
     { series_names: series_names, rows: rows }
   end
 
+  def recent_investment_transactions(limit: 3)
+    Transaction
+      .joins(:bank_account, :category)
+      .where(bank_accounts: { user_id: @user.id })
+      .where(categories: { plaid_category_id: INVESTMENT_CATEGORY_CODE })
+      .where(status: :posted)
+      .where("transactions.amount_cents > 0")
+      .order(posted_at: :desc)
+      .limit(limit)
+  end
+
   private
 
   def budget_status(delta_pct)

@@ -187,4 +187,29 @@ RSpec.describe DashboardData do
       end
     end
   end
+
+  describe "#recent_investment_transactions" do
+    it "returns posted, positive-amount investment transactions, most recent first, limited" do
+      older = Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-older",
+        category: categories(:investment_funds), status: "posted", amount_cents: 10_000,
+        posted_at: Date.new(2026, 9, 1), merchant_name: "CD DEPOSIT .INITIAL."
+      )
+      newer = Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-newer",
+        category: categories(:investment_funds), status: "posted", amount_cents: 20_000,
+        posted_at: Date.new(2026, 9, 15), merchant_name: "TRANSFER TO BROKERAGE"
+      )
+      # excluded: pending status
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-pending2",
+        category: categories(:investment_funds), status: "pending", amount_cents: 30_000,
+        posted_at: Date.new(2026, 9, 16)
+      )
+
+      data = described_class.new(users(:one))
+
+      expect(data.recent_investment_transactions(limit: 2)).to eq([ newer, older ])
+    end
+  end
 end

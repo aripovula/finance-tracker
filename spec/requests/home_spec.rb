@@ -120,6 +120,24 @@ RSpec.describe "Home", type: :request do
       end
     end
 
+    it "shows recent investment transfers" do
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-transfer",
+        category: categories(:investment_funds), status: "posted", amount_cents: 65_000,
+        posted_at: Date.new(2026, 9, 12), merchant_name: "CD DEPOSIT .INITIAL."
+      )
+
+      travel_to Date.new(2026, 9, 20) do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Investment transfers")
+        expect(response.body).to include("CD DEPOSIT .INITIAL.")
+        expect(response.body).to include("$650.00")
+      end
+    end
+
     it "shows an active budget alert" do
       post login_path, params: { email: users(:one).email, password: "password123" }
 
