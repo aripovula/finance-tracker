@@ -17,6 +17,17 @@ RSpec.describe "Home", type: :request do
       expect(response.body).to include(users(:one).email)
     end
 
+    it "shows the spent-this-month KPI tile" do
+      travel_to monthly_summaries(:one).month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Spent this month")
+        expect(response.body).to include("$45.99")
+      end
+    end
+
     it "shows this month's spending by category when a summary exists" do
       travel_to monthly_summaries(:one).month do
         post login_path, params: { email: users(:one).email, password: "password123" }
