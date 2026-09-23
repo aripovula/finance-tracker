@@ -144,14 +144,15 @@
           <% y_cursor = chart_height - bottom_pad %>
           <% row[:values].each_with_index do |value, series_i| %>
             <% next if value.zero? %>
+            <% series_name = breakdown[:series_names][series_i] %>
             <% bar_x = month_i * band + (band - bar_width) / 2 %>
             <% seg_height = (value / max_total.to_f) * plot_height %>
             <% seg_y = y_cursor - seg_height %>
             <% is_top_segment = row[:values][(series_i + 1)..].all?(&:zero?) %>
             <% if is_top_segment %>
-              <path d="<%= rounded_top_bar_path(x: bar_x, y: seg_y, width: bar_width, height: seg_height) %>" fill="<%= category_series_color(series_i) %>"/>
+              <path d="<%= rounded_top_bar_path(x: bar_x, y: seg_y, width: bar_width, height: seg_height) %>" fill="<%= category_series_color(series_name, series_i) %>"/>
             <% else %>
-              <rect x="<%= bar_x %>" y="<%= seg_y %>" width="<%= bar_width %>" height="<%= seg_height %>" fill="<%= category_series_color(series_i) %>"/>
+              <rect x="<%= bar_x %>" y="<%= seg_y %>" width="<%= bar_width %>" height="<%= seg_height %>" fill="<%= category_series_color(series_name, series_i) %>"/>
             <% end %>
             <% y_cursor = seg_y %>
           <% end %>
@@ -162,7 +163,7 @@
       <div class="mt-4 flex flex-wrap gap-x-4 gap-y-2">
         <% breakdown[:series_names].each_with_index do |name, i| %>
           <div class="flex items-center gap-1.5 text-xs text-gray-600">
-            <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background-color: <%= category_series_color(i) %>"></span>
+            <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background-color: <%= category_series_color(name, i) %>"></span>
             <%= name %>
           </div>
         <% end %>

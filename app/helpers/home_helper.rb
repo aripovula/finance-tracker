@@ -1,15 +1,19 @@
 module HomeHelper
   BUDGET_STATUS_COLORS = { critical: "#dc2626", warning: "#ca8a04", good: "#16a34a" }.freeze
   # Alternates bright, joyful hues with darker, richer ones spread across the hue
-  # wheel (indigo/amber/emerald/rose/cyan/stone) so adjacent series stay distinct.
-  CATEGORY_SERIES_COLORS = [ "#4338ca", "#f59e0b", "#10b981", "#be123c", "#06b6d4", "#57534e" ].freeze
+  # wheel (rose/amber/emerald/indigo/fuchsia) so adjacent series stay distinct.
+  # Excludes the blue family, which is reserved for CATEGORY_COLOR_OVERRIDES below.
+  CATEGORY_SERIES_COLORS = [ "#be123c", "#f59e0b", "#10b981", "#4338ca", "#d946ef" ].freeze
+  # Categories pinned to a specific color (by name) instead of their chart rank,
+  # so they stay visually distinct and consistent across months.
+  CATEGORY_COLOR_OVERRIDES = { "Account Transfer" => "#38bdf8", "Other" => "#57534e" }.freeze
 
   def budget_status_color(status)
     BUDGET_STATUS_COLORS.fetch(status, "#6b7280")
   end
 
-  def category_series_color(index)
-    CATEGORY_SERIES_COLORS[index] || CATEGORY_SERIES_COLORS.last
+  def category_series_color(name, index)
+    CATEGORY_COLOR_OVERRIDES[name] || CATEGORY_SERIES_COLORS[index % CATEGORY_SERIES_COLORS.size]
   end
 
   # Rounds only the top two corners, so stacked segments below it stay flush.
