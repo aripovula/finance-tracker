@@ -28,6 +28,15 @@ class DashboardData
     (spent_this_month_cents / total_budget_cents.to_f) * 100
   end
 
+  def over_budget_budgets
+    summaries_by_category = monthly_summaries_for(@month).index_by(&:category_id)
+
+    budgets_for(@month).includes(:category).select do |budget|
+      spent = summaries_by_category[budget.category_id]&.total_spent_cents || 0
+      spent > budget.monthly_limit_cents
+    end
+  end
+
   def invested_this_month_cents
     invested_for(@month)
   end

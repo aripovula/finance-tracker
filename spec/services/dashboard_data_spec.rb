@@ -54,6 +54,29 @@ RSpec.describe DashboardData do
     end
   end
 
+  describe "#over_budget_budgets" do
+    it "returns budgets whose monthly_summary total exceeds the limit" do
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
+        total_spent_cents: budgets(:two).monthly_limit_cents + 1
+      )
+
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:one))
+
+        expect(data.over_budget_budgets).to contain_exactly(budgets(:two))
+      end
+    end
+
+    it "returns an empty array when nothing is over budget" do
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:one))
+
+        expect(data.over_budget_budgets).to be_empty
+      end
+    end
+  end
+
   describe "#invested_this_month_cents, #invested_last_month_cents" do
     it "sums posted, positive-amount transactions in the investment category for each month" do
       Transaction.create!(

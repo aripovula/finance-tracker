@@ -56,6 +56,22 @@ RSpec.describe "Home", type: :request do
       end
     end
 
+    it "shows the over-budget KPI tile" do
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
+        total_spent_cents: budgets(:two).monthly_limit_cents + 1
+      )
+
+      travel_to budgets(:one).effective_month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Over budget")
+        expect(response.body).to include(categories(:restaurants).name)
+      end
+    end
+
     it "shows this month's spending by category when a summary exists" do
       travel_to monthly_summaries(:one).month do
         post login_path, params: { email: users(:one).email, password: "password123" }
