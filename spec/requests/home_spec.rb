@@ -98,6 +98,9 @@ RSpec.describe "Home", type: :request do
 
         expect(response.body).to include("Spending by category")
         expect(response.body).to include(categories(:dining).name)
+        expect(response.body).to include('data-controller="category-chart"')
+        expect(response.body).to include("<title>#{categories(:dining).name}: $45.99</title>")
+        expect(response.body).to include('data-category-chart-target="legendItem"')
       end
     end
 

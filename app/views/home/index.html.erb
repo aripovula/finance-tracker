@@ -127,7 +127,7 @@
     <% end %>
   </div>
 
-  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-controller="category-chart">
     <div class="mb-4">
       <h2 class="text-base font-semibold text-gray-900">Spending by category</h2>
       <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>
@@ -145,14 +145,16 @@
           <% row[:values].each_with_index do |value, series_i| %>
             <% next if value.zero? %>
             <% series_name = breakdown[:series_names][series_i] %>
+            <% tooltip = "#{series_name}: #{number_to_currency(value / 100.0)}" %>
             <% bar_x = month_i * band + (band - bar_width) / 2 %>
             <% seg_height = (value / max_total.to_f) * plot_height %>
             <% seg_y = y_cursor - seg_height %>
             <% is_top_segment = row[:values][(series_i + 1)..].all?(&:zero?) %>
+            <% shape_attrs = %(data-category-chart-target="segment" data-series-index="#{series_i}" data-action="mouseenter->category-chart#highlight mouseleave->category-chart#unhighlight" class="cursor-default") %>
             <% if is_top_segment %>
-              <path d="<%= rounded_top_bar_path(x: bar_x, y: seg_y, width: bar_width, height: seg_height) %>" fill="<%= category_series_color(series_name, series_i) %>"/>
+              <path d="<%= rounded_top_bar_path(x: bar_x, y: seg_y, width: bar_width, height: seg_height) %>" fill="<%= category_series_color(series_name, series_i) %>" <%= shape_attrs.html_safe %>><title><%= tooltip %></title></path>
             <% else %>
-              <rect x="<%= bar_x %>" y="<%= seg_y %>" width="<%= bar_width %>" height="<%= seg_height %>" fill="<%= category_series_color(series_name, series_i) %>"/>
+              <rect x="<%= bar_x %>" y="<%= seg_y %>" width="<%= bar_width %>" height="<%= seg_height %>" fill="<%= category_series_color(series_name, series_i) %>" <%= shape_attrs.html_safe %>><title><%= tooltip %></title></rect>
             <% end %>
             <% y_cursor = seg_y %>
           <% end %>
@@ -162,9 +164,9 @@
 
       <div class="mt-4 flex flex-wrap gap-x-4 gap-y-2">
         <% breakdown[:series_names].each_with_index do |name, i| %>
-          <div class="flex items-center gap-1.5 text-xs text-gray-600">
-            <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background-color: <%= category_series_color(name, i) %>"></span>
-            <%= name %>
+          <div class="flex items-center gap-1.5 text-xs text-gray-600" data-category-chart-target="legendItem" data-series-index="<%= i %>">
+            <span data-role="dot" class="inline-block h-2.5 w-2.5 rounded-full ring-offset-1 transition" style="background-color: <%= category_series_color(name, i) %>"></span>
+            <span data-role="label" class="transition-colors"><%= name %></span>
           </div>
         <% end %>
       </div>
