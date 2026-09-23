@@ -10,3 +10,7 @@ restaurants:
 investment_funds:
   name: Investment And Retirement Funds
   plaid_category_id: TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS
+
+account_transfer:
+  name: Account Transfer
+  plaid_category_id: TRANSFER_OUT_ACCOUNT_TRANSFER

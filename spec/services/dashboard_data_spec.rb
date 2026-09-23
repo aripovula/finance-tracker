@@ -186,6 +186,26 @@ RSpec.describe DashboardData do
         expect(data.invested_last_month_cents).to eq(60_000)
       end
     end
+
+    it "also counts CD deposits filed under the generic account-transfer category" do
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-cd-deposit",
+        category: categories(:account_transfer), status: "posted", amount_cents: 100_000,
+        posted_at: Date.new(2026, 9, 11), merchant_name: "CD DEPOSIT .INITIAL."
+      )
+      # excluded: a same-category transfer that isn't a CD deposit (e.g. payroll)
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-payroll",
+        category: categories(:account_transfer), status: "posted", amount_cents: 585_000,
+        posted_at: Date.new(2026, 9, 11), merchant_name: "ACH Electronic CreditGUSTO PAY 123456"
+      )
+
+      travel_to Date.new(2026, 9, 20) do
+        data = described_class.new(users(:one))
+
+        expect(data.invested_this_month_cents).to eq(100_000)
+      end
+    end
   end
 
   describe "#recent_investment_transactions" do
@@ -210,6 +230,18 @@ RSpec.describe DashboardData do
       data = described_class.new(users(:one))
 
       expect(data.recent_investment_transactions(limit: 2)).to eq([ newer, older ])
+    end
+
+    it "includes CD deposits filed under the generic account-transfer category" do
+      cd_deposit = Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-cd-deposit-recent",
+        category: categories(:account_transfer), status: "posted", amount_cents: 100_000,
+        posted_at: Date.new(2026, 9, 11), merchant_name: "CD DEPOSIT .INITIAL."
+      )
+
+      data = described_class.new(users(:one))
+
+      expect(data.recent_investment_transactions).to include(cd_deposit)
     end
   end
 end

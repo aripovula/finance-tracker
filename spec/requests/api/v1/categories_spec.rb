@@ -13,7 +13,9 @@ RSpec.describe "api/v1/categories", type: :request do
 
         run_test! do |response|
           data = JSON.parse(response.body)["data"]
-          expect(data.map { |category| category["name"] }).to contain_exactly("Dining", "Restaurants", "Investment And Retirement Funds")
+          expect(data.map { |category| category["name"] }).to contain_exactly(
+            "Dining", "Restaurants", "Investment And Retirement Funds", "Account Transfer"
+          )
         end
       end
 

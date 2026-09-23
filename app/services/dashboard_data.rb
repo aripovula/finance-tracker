@@ -1,5 +1,8 @@
 class DashboardData
   INVESTMENT_CATEGORY_CODE = "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS".freeze
+  # Plaid's own Sandbox categorizer files these as a generic account transfer (low
+  # confidence) rather than the investment PFC code, so we also recognize them by name.
+  INVESTMENT_MERCHANT_KEYWORDS = [ "CD DEPOSIT" ].freeze
 
   def initialize(user, month: Date.current.beginning_of_month)
     @user = user
@@ -92,14 +95,7 @@ class DashboardData
   end
 
   def recent_investment_transactions(limit: 3)
-    Transaction
-      .joins(:bank_account, :category)
-      .where(bank_accounts: { user_id: @user.id })
-      .where(categories: { plaid_category_id: INVESTMENT_CATEGORY_CODE })
-      .where(status: :posted)
-      .where("transactions.amount_cents > 0")
-      .order(posted_at: :desc)
-      .limit(limit)
+    investment_transactions_scope.order(posted_at: :desc).limit(limit)
   end
 
   private
@@ -112,14 +108,19 @@ class DashboardData
   end
 
   def invested_for(month)
+    investment_transactions_scope.where(posted_at: month.all_month).sum(:amount_cents)
+  end
+
+  def investment_transactions_scope
+    keyword_clause = INVESTMENT_MERCHANT_KEYWORDS.map { "transactions.merchant_name ILIKE ?" }.join(" OR ")
+    keyword_binds = INVESTMENT_MERCHANT_KEYWORDS.map { |keyword| "%#{keyword}%" }
+
     Transaction
       .joins(:bank_account, :category)
       .where(bank_accounts: { user_id: @user.id })
-      .where(categories: { plaid_category_id: INVESTMENT_CATEGORY_CODE })
       .where(status: :posted)
       .where("transactions.amount_cents > 0")
-      .where(posted_at: month.all_month)
-      .sum(:amount_cents)
+      .where([ "categories.plaid_category_id = ? OR (#{keyword_clause})", INVESTMENT_CATEGORY_CODE, *keyword_binds ])
   end
 
   def budgets_for(month)
