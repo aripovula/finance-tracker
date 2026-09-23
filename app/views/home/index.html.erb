@@ -127,35 +127,53 @@
     <% end %>
   </div>
 
-  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-  <div class="border-b border-gray-200 p-5">
-    <h2 class="text-base font-semibold text-gray-900"><%= Date.current.strftime("%B %Y") %> spending by category</h2>
-    <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>
-  </div>
-  <% if @monthly_summaries.any? %>
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Spent</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200">
-        <% @monthly_summaries.each do |summary| %>
-          <tr class="hover:bg-gray-50">
-            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= summary.category.name %></td>
-            <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= number_to_currency(summary.total_spent_cents / 100.0) %></td>
-          </tr>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-4">
+      <h2 class="text-base font-semibold text-gray-900">Spending by category</h2>
+      <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>
+    </div>
+    <% breakdown = @dashboard.category_breakdown %>
+    <% if breakdown[:rows].any? { |row| row[:values].sum.positive? } %>
+      <% chart_width = 480; chart_height = 200; bottom_pad = 24; top_pad = 10 %>
+      <% plot_height = chart_height - bottom_pad - top_pad %>
+      <% max_total = [ breakdown[:rows].map { |row| row[:values].sum }.max, 1 ].max %>
+      <% band = chart_width / breakdown[:rows].size.to_f %>
+      <% bar_width = [ band * 0.5, 56 ].min %>
+      <svg viewBox="0 0 <%= chart_width %> <%= chart_height %>" class="w-full">
+        <% breakdown[:rows].each_with_index do |row, month_i| %>
+          <% y_cursor = chart_height - bottom_pad %>
+          <% row[:values].each_with_index do |value, series_i| %>
+            <% next if value.zero? %>
+            <% bar_x = month_i * band + (band - bar_width) / 2 %>
+            <% seg_height = (value / max_total.to_f) * plot_height %>
+            <% seg_y = y_cursor - seg_height %>
+            <% is_top_segment = row[:values][(series_i + 1)..].all?(&:zero?) %>
+            <% if is_top_segment %>
+              <path d="<%= rounded_top_bar_path(x: bar_x, y: seg_y, width: bar_width, height: seg_height) %>" fill="<%= category_series_color(series_i) %>"/>
+            <% else %>
+              <rect x="<%= bar_x %>" y="<%= seg_y %>" width="<%= bar_width %>" height="<%= seg_height %>" fill="<%= category_series_color(series_i) %>"/>
+            <% end %>
+            <% y_cursor = seg_y %>
+          <% end %>
+          <text x="<%= month_i * band + band / 2 %>" y="<%= chart_height - 6 %>" font-size="11" text-anchor="middle" fill="#6b7280"><%= row[:month].strftime("%b") %></text>
         <% end %>
-      </tbody>
-    </table>
-  <% else %>
-    <p class="px-6 py-8 text-center text-sm text-gray-500">
-      No spending data yet for this month. Browse your
-      <%= link_to "categories", categories_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
-      or connect a <%= link_to "bank account", bank_accounts_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
-      to get started.
-    </p>
-  <% end %>
+      </svg>
+
+      <div class="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+        <% breakdown[:series_names].each_with_index do |name, i| %>
+          <div class="flex items-center gap-1.5 text-xs text-gray-600">
+            <span class="inline-block h-2.5 w-2.5 rounded-sm" style="background-color: <%= category_series_color(i) %>"></span>
+            <%= name %>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="px-2 py-8 text-center text-sm text-gray-500">
+        No spending data yet. Browse your
+        <%= link_to "categories", categories_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+        or connect a <%= link_to "bank account", bank_accounts_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+        to get started.
+      </p>
+    <% end %>
   </div>
 </div>

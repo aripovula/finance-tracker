@@ -62,6 +62,28 @@ class DashboardData
     end
   end
 
+  def category_breakdown(months_count: 5)
+    months = (months_count - 1).downto(0).map { |offset| @month - offset.months }
+    summaries = @user.monthly_summaries.where(month: months).includes(:category).to_a
+
+    totals = Hash.new(0)
+    summaries.each { |summary| totals[summary.category.name] += summary.total_spent_cents }
+    top_names = totals.sort_by { |_name, cents| -cents }.first(5).map(&:first)
+
+    by_month = months.index_with { Hash.new(0) }
+    summaries.each do |summary|
+      name = top_names.include?(summary.category.name) ? summary.category.name : "Other"
+      by_month[summary.month][name] += summary.total_spent_cents
+    end
+
+    has_other = by_month.values.any? { |month_totals| month_totals.key?("Other") }
+    series_names = has_other ? top_names + [ "Other" ] : top_names
+
+    rows = months.map { |month| { month: month, values: series_names.map { |name| by_month[month][name] } } }
+
+    { series_names: series_names, rows: rows }
+  end
+
   private
 
   def budget_status(delta_pct)

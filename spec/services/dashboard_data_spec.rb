@@ -113,6 +113,38 @@ RSpec.describe DashboardData do
     end
   end
 
+  describe "#category_breakdown" do
+    it "folds categories beyond the top 5 into Other" do
+      month = monthly_summaries(:one).month # dining: 4599
+
+      extra_categories = (1..5).map { |i| Category.create!(name: "Extra #{i}", plaid_category_id: "EXTRA_#{i}") }
+      extra_categories.each_with_index do |category, i|
+        MonthlySummary.create!(user: users(:one), category: category, month: month, total_spent_cents: (i + 1) * 1000)
+      end
+
+      travel_to month + 10.days do
+        data = described_class.new(users(:one))
+        breakdown = data.category_breakdown(months_count: 1)
+
+        expect(breakdown[:series_names]).to include("Other")
+        expect(breakdown[:series_names].size).to eq(6)
+        expect(breakdown[:rows].size).to eq(1)
+        expect(breakdown[:rows].first[:month]).to eq(month)
+      end
+    end
+
+    it "returns one row per month with per-series totals aligned to series_names" do
+      travel_to monthly_summaries(:one).month + 10.days do
+        data = described_class.new(users(:one))
+        breakdown = data.category_breakdown(months_count: 3)
+
+        expect(breakdown[:rows].size).to eq(3)
+        dining_index = breakdown[:series_names].index(categories(:dining).name)
+        expect(breakdown[:rows].last[:values][dining_index]).to eq(monthly_summaries(:one).total_spent_cents)
+      end
+    end
+  end
+
   describe "#invested_this_month_cents, #invested_last_month_cents" do
     it "sums posted, positive-amount transactions in the investment category for each month" do
       Transaction.create!(

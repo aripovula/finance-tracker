@@ -90,18 +90,18 @@ RSpec.describe "Home", type: :request do
       end
     end
 
-    it "shows this month's spending by category when a summary exists" do
+    it "shows the category breakdown chart with a legend when summaries exist" do
       travel_to monthly_summaries(:one).month do
         post login_path, params: { email: users(:one).email, password: "password123" }
 
         get root_path
 
+        expect(response.body).to include("Spending by category")
         expect(response.body).to include(categories(:dining).name)
-        expect(response.body).to include("$45.99")
       end
     end
 
-    it "shows an empty state when there is no summary for this month" do
+    it "shows an empty state when there is no summary data" do
       post login_path, params: { email: users(:two).email, password: "password123" }
 
       get root_path
