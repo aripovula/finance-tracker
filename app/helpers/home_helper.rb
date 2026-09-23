@@ -1,6 +1,8 @@
 module HomeHelper
   BUDGET_STATUS_COLORS = { critical: "#dc2626", warning: "#ca8a04", good: "#16a34a" }.freeze
-  CATEGORY_SERIES_COLORS = [ "#4f46e5", "#2563eb", "#0d9488", "#9333ea", "#e11d48", "#6b7280" ].freeze
+  # Alternates bright, joyful hues with darker, richer ones spread across the hue
+  # wheel (indigo/amber/emerald/rose/cyan/stone) so adjacent series stay distinct.
+  CATEGORY_SERIES_COLORS = [ "#4338ca", "#f59e0b", "#10b981", "#be123c", "#06b6d4", "#57534e" ].freeze
 
   def budget_status_color(status)
     BUDGET_STATUS_COLORS.fetch(status, "#6b7280")
