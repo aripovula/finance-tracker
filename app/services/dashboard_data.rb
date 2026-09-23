@@ -45,7 +45,31 @@ class DashboardData
     invested_for(@month - 1.month)
   end
 
+  def budget_comparisons
+    summaries_by_category = monthly_summaries_for(@month).index_by(&:category_id)
+
+    budgets_for(@month).includes(:category).order("categories.name").map do |budget|
+      spent_cents = summaries_by_category[budget.category_id]&.total_spent_cents || 0
+      delta_pct = ((spent_cents - budget.monthly_limit_cents) / budget.monthly_limit_cents.to_f) * 100
+
+      {
+        category_name: budget.category.name,
+        budget_cents: budget.monthly_limit_cents,
+        spent_cents: spent_cents,
+        delta_pct: delta_pct,
+        status: budget_status(delta_pct)
+      }
+    end
+  end
+
   private
+
+  def budget_status(delta_pct)
+    return :critical if delta_pct >= 15
+    return :good if delta_pct <= -15
+
+    :warning
+  end
 
   def invested_for(month)
     Transaction

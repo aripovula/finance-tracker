@@ -1,4 +1,10 @@
 module HomeHelper
+  BUDGET_STATUS_COLORS = { critical: "#dc2626", warning: "#ca8a04", good: "#16a34a" }.freeze
+
+  def budget_status_color(status)
+    BUDGET_STATUS_COLORS.fetch(status, "#6b7280")
+  end
+
   def kpi_delta_text(current_cents, previous_cents, label: "vs last month")
     return "No data for last month" if previous_cents.blank? || previous_cents.zero?
 

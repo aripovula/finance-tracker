@@ -72,6 +72,24 @@ RSpec.describe "Home", type: :request do
       end
     end
 
+    it "shows the budget vs. actual chart with cut-back and room-to-spend callouts" do
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
+        total_spent_cents: budgets(:two).monthly_limit_cents + 5_000
+      )
+
+      travel_to budgets(:one).effective_month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Budget vs. actual")
+        expect(response.body).to include("Cut back:")
+        expect(response.body).to include("Room to spend:")
+        expect(response.body).to include(categories(:restaurants).name)
+      end
+    end
+
     it "shows this month's spending by category when a summary exists" do
       travel_to monthly_summaries(:one).month do
         post login_path, params: { email: users(:one).email, password: "password123" }

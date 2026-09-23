@@ -77,6 +77,42 @@ RSpec.describe DashboardData do
     end
   end
 
+  describe "#budget_comparisons" do
+    it "computes spend, delta percent, and status per budget" do
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month, total_spent_cents: 21_000
+      )
+
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:one))
+        comparisons = data.budget_comparisons
+
+        dining = comparisons.find { |c| c[:category_name] == categories(:dining).name }
+        restaurants = comparisons.find { |c| c[:category_name] == categories(:restaurants).name }
+
+        expect(dining[:spent_cents]).to eq(monthly_summaries(:one).total_spent_cents)
+        expect(dining[:status]).to eq(:good)
+
+        expect(restaurants[:spent_cents]).to eq(21_000)
+        expect(restaurants[:delta_pct]).to be_within(0.1).of(5.0)
+        expect(restaurants[:status]).to eq(:warning)
+      end
+    end
+
+    it "marks a budget critical when spend is 15% or more over the limit" do
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month, total_spent_cents: 25_000
+      )
+
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:one))
+        restaurants = data.budget_comparisons.find { |c| c[:category_name] == categories(:restaurants).name }
+
+        expect(restaurants[:status]).to eq(:critical)
+      end
+    end
+  end
+
   describe "#invested_this_month_cents, #invested_last_month_cents" do
     it "sums posted, positive-amount transactions in the investment category for each month" do
       Transaction.create!(
