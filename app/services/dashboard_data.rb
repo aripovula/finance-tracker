@@ -37,6 +37,13 @@ class DashboardData
     end
   end
 
+  def spend_trend(months_count: 12)
+    months = (months_count - 1).downto(0).map { |offset| @month - offset.months }
+    totals = @user.monthly_summaries.where(month: months).group(:month).sum(:total_spent_cents)
+
+    months.map { |month| { month: month, total_spent_cents: totals[month] || 0 } }
+  end
+
   def invested_this_month_cents
     invested_for(@month)
   end

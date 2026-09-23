@@ -109,6 +109,17 @@ RSpec.describe "Home", type: :request do
       expect(response.body).to include("No spending data yet")
     end
 
+    it "shows the spending trend chart" do
+      travel_to monthly_summaries(:one).month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Spending trend")
+        expect(response.body).to include("Trailing 12 months")
+      end
+    end
+
     it "shows an active budget alert" do
       post login_path, params: { email: users(:one).email, password: "password123" }
 

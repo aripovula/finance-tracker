@@ -145,6 +145,21 @@ RSpec.describe DashboardData do
     end
   end
 
+  describe "#spend_trend" do
+    it "returns one point per trailing month, defaulting missing months to zero" do
+      travel_to monthly_summaries(:one).month + 10.days do
+        data = described_class.new(users(:one))
+        trend = data.spend_trend(months_count: 3)
+
+        expect(trend.size).to eq(3)
+        expect(trend.map { |point| point[:month] }).to eq(trend.map { |point| point[:month] }.sort)
+        expect(trend.last[:month]).to eq(monthly_summaries(:one).month)
+        expect(trend.last[:total_spent_cents]).to eq(monthly_summaries(:one).total_spent_cents)
+        expect(trend.first[:total_spent_cents]).to eq(0)
+      end
+    end
+  end
+
   describe "#invested_this_month_cents, #invested_last_month_cents" do
     it "sums posted, positive-amount transactions in the investment category for each month" do
       Transaction.create!(
