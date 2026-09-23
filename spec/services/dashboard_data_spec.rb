@@ -53,4 +53,32 @@ RSpec.describe DashboardData do
       end
     end
   end
+
+  describe "#invested_this_month_cents, #invested_last_month_cents" do
+    it "sums posted, positive-amount transactions in the investment category for each month" do
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-this",
+        category: categories(:investment_funds), status: "posted", amount_cents: 65_000,
+        posted_at: Date.new(2026, 9, 12)
+      )
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-last",
+        category: categories(:investment_funds), status: "posted", amount_cents: 60_000,
+        posted_at: Date.new(2026, 8, 12)
+      )
+      # excluded: pending, and a different category
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-pending",
+        category: categories(:investment_funds), status: "pending", amount_cents: 99_999,
+        posted_at: Date.new(2026, 9, 15)
+      )
+
+      travel_to Date.new(2026, 9, 20) do
+        data = described_class.new(users(:one))
+
+        expect(data.invested_this_month_cents).to eq(65_000)
+        expect(data.invested_last_month_cents).to eq(60_000)
+      end
+    end
+  end
 end

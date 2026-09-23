@@ -6,3 +6,7 @@ restaurants:
   name: Restaurants
   plaid_category_id: food_and_drink_restaurants
   parent_category: dining
+
+investment_funds:
+  name: Investment And Retirement Funds
+  plaid_category_id: TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS

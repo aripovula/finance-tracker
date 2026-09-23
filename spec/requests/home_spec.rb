@@ -39,6 +39,23 @@ RSpec.describe "Home", type: :request do
       end
     end
 
+    it "shows the invested-this-month KPI tile" do
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-invest-kpi",
+        category: categories(:investment_funds), status: "posted", amount_cents: 65_000,
+        posted_at: Date.new(2026, 9, 12)
+      )
+
+      travel_to Date.new(2026, 9, 20) do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("Invested this month")
+        expect(response.body).to include("$650.00")
+      end
+    end
+
     it "shows this month's spending by category when a summary exists" do
       travel_to monthly_summaries(:one).month do
         post login_path, params: { email: users(:one).email, password: "password123" }

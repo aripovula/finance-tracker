@@ -1,4 +1,6 @@
 class DashboardData
+  INVESTMENT_CATEGORY_CODE = "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS".freeze
+
   def initialize(user, month: Date.current.beginning_of_month)
     @user = user
     @month = month
@@ -26,7 +28,26 @@ class DashboardData
     (spent_this_month_cents / total_budget_cents.to_f) * 100
   end
 
+  def invested_this_month_cents
+    invested_for(@month)
+  end
+
+  def invested_last_month_cents
+    invested_for(@month - 1.month)
+  end
+
   private
+
+  def invested_for(month)
+    Transaction
+      .joins(:bank_account, :category)
+      .where(bank_accounts: { user_id: @user.id })
+      .where(categories: { plaid_category_id: INVESTMENT_CATEGORY_CODE })
+      .where(status: :posted)
+      .where("transactions.amount_cents > 0")
+      .where(posted_at: month.all_month)
+      .sum(:amount_cents)
+  end
 
   def budgets_for(month)
     @user.budgets.where(effective_month: month)
