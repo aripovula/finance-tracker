@@ -51,11 +51,12 @@
   </div>
 
   <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <% over_budget = @dashboard.over_budget_comparisons %>
     <p class="text-sm font-medium text-gray-500">Over budget</p>
-    <p class="mt-2 text-2xl font-semibold text-gray-900"><%= @dashboard.over_budget_budgets.size %></p>
-    <p class="mt-1 text-xs font-medium <%= @dashboard.over_budget_budgets.any? ? "text-red-600" : "text-gray-400" %>">
-      <% if @dashboard.over_budget_budgets.any? %>
-        <%= @dashboard.over_budget_budgets.map { |budget| budget.category.name }.join(", ") %>
+    <p class="mt-2 text-2xl font-semibold text-gray-900"><%= over_budget.size %></p>
+    <p class="mt-1 text-xs font-medium <%= over_budget.any? ? "text-red-600" : "text-gray-400" %>">
+      <% if over_budget.any? %>
+        <%= over_budget.map { |comparison| comparison[:category_name] }.join(", ") %>
       <% else %>
         All categories on track
       <% end %>
@@ -71,51 +72,54 @@
     </div>
     <% comparisons = @dashboard.budget_comparisons %>
     <% if comparisons.any? %>
-      <% zero_x = 370; scale = 2; row_height = 40 %>
-      <svg viewBox="0 0 600 <%= comparisons.size * row_height + 20 %>" class="w-full">
-        <line x1="<%= zero_x %>" y1="4" x2="<%= zero_x %>" y2="<%= comparisons.size * row_height %>" stroke="#d1d5db" stroke-width="1"/>
-        <% comparisons.each_with_index do |comparison, i| %>
-          <% y_center = 30 + i * row_height %>
-          <% clamped = comparison[:delta_pct].clamp(-100, 100) %>
-          <% if clamped >= 0 %>
-            <% bar_x = zero_x; bar_w = clamped * scale %>
-          <% else %>
-            <% bar_w = -clamped * scale; bar_x = zero_x - bar_w %>
+      <% name_x = 165; zero_x = 330; value_x = 590; scale = 1.4; row_height = 40 %>
+      <div class="max-h-[340px] overflow-y-auto">
+        <svg viewBox="0 0 600 <%= comparisons.size * row_height + 20 %>" class="w-full">
+          <line x1="<%= zero_x %>" y1="4" x2="<%= zero_x %>" y2="<%= comparisons.size * row_height %>" stroke="#d1d5db" stroke-width="1"/>
+          <% comparisons.each_with_index do |comparison, i| %>
+            <% y_center = 30 + i * row_height %>
+            <% clamped = comparison[:delta_pct].clamp(-100, 100) %>
+            <% if clamped >= 0 %>
+              <% bar_x = zero_x; bar_w = clamped * scale %>
+            <% else %>
+              <% bar_w = -clamped * scale; bar_x = zero_x - bar_w %>
+            <% end %>
+            <text x="<%= name_x %>" y="<%= y_center + 4 %>" font-size="11.5" text-anchor="end" fill="#111827">
+              <%= truncate(comparison[:category_name], length: 20) %>
+              <title><%= comparison[:category_name] %></title>
+            </text>
+            <% if bar_w < 1 %>
+              <circle cx="<%= zero_x %>" cy="<%= y_center %>" r="4.5" fill="<%= budget_status_color(comparison[:status]) %>"/>
+            <% else %>
+              <rect x="<%= bar_x %>" y="<%= y_center - 11 %>" width="<%= bar_w %>" height="22" rx="4" fill="<%= budget_status_color(comparison[:status]) %>"/>
+            <% end %>
+            <% sign = comparison[:delta_pct] >= 0 ? "+" : "−" %>
+            <% pct_label = "#{sign}#{number_with_precision(comparison[:delta_pct].abs, precision: 0)}%" %>
+            <text x="<%= value_x %>" y="<%= y_center + 4 %>" font-size="11" text-anchor="end" fill="#6b7280"><%= pct_label %></text>
           <% end %>
-          <text x="355" y="<%= y_center + 4 %>" font-size="11.5" text-anchor="end" fill="#111827"><%= comparison[:category_name] %></text>
-          <% if bar_w < 1 %>
-            <circle cx="<%= zero_x %>" cy="<%= y_center %>" r="4.5" fill="<%= budget_status_color(comparison[:status]) %>"/>
-          <% else %>
-            <rect x="<%= bar_x %>" y="<%= y_center - 11 %>" width="<%= bar_w %>" height="22" rx="4" fill="<%= budget_status_color(comparison[:status]) %>"/>
-          <% end %>
-          <% sign = comparison[:delta_pct] >= 0 ? "+" : "−" %>
-          <% pct_label = "#{sign}#{number_with_precision(comparison[:delta_pct].abs, precision: 0)}%" %>
-          <% if clamped >= 0 %>
-            <text x="<%= bar_x + [ bar_w, 1 ].max + 6 %>" y="<%= y_center + 4 %>" font-size="11" text-anchor="start" fill="#6b7280"><%= pct_label %></text>
-          <% else %>
-            <text x="<%= bar_x - 6 %>" y="<%= y_center + 4 %>" font-size="11" text-anchor="end" fill="#6b7280"><%= pct_label %></text>
-          <% end %>
-        <% end %>
-      </svg>
+        </svg>
+      </div>
 
-      <% cut = comparisons.select { |c| c[:status] == :critical }.sort_by { |c| -c[:delta_pct] } %>
-      <% room = comparisons.select { |c| c[:status] == :good }.sort_by { |c| c[:delta_pct] } %>
+      <% cut = comparisons.select { |c| c[:status] == :critical } %>
+      <% room = comparisons.select { |c| c[:status] == :good } %>
       <div class="mt-4 space-y-2">
         <% if cut.any? %>
+          <% cut_total_cents = cut.sum { |c| c[:spent_cents] - c[:budget_cents] } %>
           <div class="flex gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
             <div class="w-1 shrink-0 rounded bg-red-600"></div>
             <p class="text-xs leading-relaxed text-gray-600">
               <strong class="font-semibold text-gray-900">Cut back:</strong>
-              <% cut.each_with_index do |c, i| %><%= ", " if i.positive? %><%= c[:category_name] %> is <%= number_with_precision(c[:delta_pct], precision: 0) %>% over (<%= number_to_currency((c[:spent_cents] - c[:budget_cents]) / 100.0) %> over)<% end %>.
+              <%= pluralize(cut.size, "budget category") %> for a total of <%= number_to_currency(cut_total_cents / 100.0) %> over.
             </p>
           </div>
         <% end %>
         <% if room.any? %>
+          <% room_total_cents = room.sum { |c| c[:budget_cents] - c[:spent_cents] } %>
           <div class="flex gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
             <div class="w-1 shrink-0 rounded bg-green-600"></div>
             <p class="text-xs leading-relaxed text-gray-600">
               <strong class="font-semibold text-gray-900">Room to spend:</strong>
-              <% room.each_with_index do |c, i| %><%= ", " if i.positive? %><%= c[:category_name] %> is only <%= number_with_precision(100 + c[:delta_pct], precision: 0) %>% used (<%= number_to_currency((c[:budget_cents] - c[:spent_cents]) / 100.0) %> left)<% end %>.
+              <%= pluralize(room.size, "budget category") %> for a total of <%= number_to_currency(room_total_cents / 100.0) %> left.
             </p>
           </div>
         <% end %>

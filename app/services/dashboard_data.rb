@@ -31,13 +31,10 @@ class DashboardData
     (budget_comparisons.sum { |comparison| comparison[:spent_cents] } / total_budget_cents.to_f) * 100
   end
 
-  def over_budget_budgets
-    summaries_by_category = monthly_summaries_for(@month).index_by(&:category_id)
-
-    budgets_for(@month).includes(:category).select do |budget|
-      spent = summaries_by_category[budget.category_id]&.total_spent_cents || 0
-      spent > budget.monthly_limit_cents
-    end
+  # Every category over its comparison baseline this month - a user budget where
+  # one is set, otherwise the trailing-average fallback from budget_comparisons.
+  def over_budget_comparisons
+    budget_comparisons.select { |comparison| comparison[:spent_cents] > comparison[:budget_cents] }
   end
 
   def spend_trend(months_count: 12)
@@ -59,7 +56,8 @@ class DashboardData
   # against the user's budget if they set one, otherwise fall back to the
   # trailing 3-month average (skipped if that average is zero - nothing to
   # compare against yet). This keeps every spending category represented, not
-  # just the handful the user has explicitly budgeted.
+  # just the handful the user has explicitly budgeted. Sorted by the size of
+  # the deviation (largest first), so callers can take the top N.
   def budget_comparisons
     @budget_comparisons ||= begin
       summaries_by_category = monthly_summaries_for(@month).index_by(&:category_id)
@@ -85,7 +83,7 @@ class DashboardData
         { category_name: category_name, budget_cents: budget_cents, spent_cents: spent_cents, delta_pct: delta_pct, status: budget_status(delta_pct) }
       end
 
-      comparisons.sort_by { |comparison| comparison[:category_name] }
+      comparisons.sort_by { |comparison| -comparison[:delta_pct].abs }
     end
   end
 

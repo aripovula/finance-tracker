@@ -72,6 +72,21 @@ RSpec.describe "Home", type: :request do
       end
     end
 
+    it "counts trailing-average fallback categories as over budget too" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month, total_spent_cents: 12_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 1.month, total_spent_cents: 9_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 2.months, total_spent_cents: 3_000)
+
+      travel_to month + 10.days do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("#{categories(:account_transfer).name} (avg)")
+      end
+    end
+
     it "shows the budget vs. actual chart with cut-back and room-to-spend callouts" do
       MonthlySummary.create!(
         user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
@@ -85,8 +100,52 @@ RSpec.describe "Home", type: :request do
 
         expect(response.body).to include("Budget vs. actual")
         expect(response.body).to include("Cut back:")
+        expect(response.body).to include("1 budget category for a total of $50.00 over.")
         expect(response.body).to include("Room to spend:")
+        expect(response.body).to include("1 budget category for a total of $454.01 left.")
         expect(response.body).to include(categories(:restaurants).name)
+      end
+    end
+
+    it "pluralizes the cut-back summary across multiple over-budget categories" do
+      monthly_summaries(:one).update!(total_spent_cents: 60_000) # dining: $600 vs $500 budget = 20% over
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
+        total_spent_cents: budgets(:two).monthly_limit_cents + 5_000 # restaurants: $250 vs $200 = 25% over
+      )
+
+      travel_to budgets(:one).effective_month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("2 budget categories for a total of $150.00 over.")
+      end
+    end
+
+    it "wraps the budget vs. actual chart in a scrollable container" do
+      travel_to budgets(:one).effective_month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("max-h-[340px] overflow-y-auto")
+      end
+    end
+
+    it "truncates a long category label and keeps the full name in a title tooltip" do
+      long_name_category = Category.create!(name: "Sporting Events, Amusement Parks And Museums")
+      MonthlySummary.create!(user: users(:one), category: long_name_category, month: budgets(:one).effective_month, total_spent_cents: 500)
+      MonthlySummary.create!(user: users(:one), category: long_name_category, month: budgets(:one).effective_month - 1.month, total_spent_cents: 500)
+      MonthlySummary.create!(user: users(:one), category: long_name_category, month: budgets(:one).effective_month - 2.months, total_spent_cents: 500)
+
+      travel_to budgets(:one).effective_month + 10.days do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("<title>#{long_name_category.name} (avg)</title>")
+        expect(response.body).to include(ActionController::Base.helpers.truncate("#{long_name_category.name} (avg)", length: 20))
       end
     end
 

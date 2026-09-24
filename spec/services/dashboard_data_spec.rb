@@ -88,8 +88,8 @@ RSpec.describe DashboardData do
     end
   end
 
-  describe "#over_budget_budgets" do
-    it "returns budgets whose monthly_summary total exceeds the limit" do
+  describe "#over_budget_comparisons" do
+    it "returns comparisons whose spend exceeds their budget" do
       MonthlySummary.create!(
         user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
         total_spent_cents: budgets(:two).monthly_limit_cents + 1
@@ -98,7 +98,20 @@ RSpec.describe DashboardData do
       travel_to budgets(:one).effective_month + 10.days do
         data = described_class.new(users(:one))
 
-        expect(data.over_budget_budgets).to contain_exactly(budgets(:two))
+        expect(data.over_budget_comparisons.map { |c| c[:category_name] }).to contain_exactly(categories(:restaurants).name)
+      end
+    end
+
+    it "includes trailing-average fallback categories that are over their average" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month, total_spent_cents: 12_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 1.month, total_spent_cents: 9_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 2.months, total_spent_cents: 3_000)
+
+      travel_to month + 10.days do
+        data = described_class.new(users(:one))
+
+        expect(data.over_budget_comparisons.map { |c| c[:category_name] }).to include("#{categories(:account_transfer).name} (avg)")
       end
     end
 
@@ -106,7 +119,7 @@ RSpec.describe DashboardData do
       travel_to budgets(:one).effective_month + 10.days do
         data = described_class.new(users(:one))
 
-        expect(data.over_budget_budgets).to be_empty
+        expect(data.over_budget_comparisons).to be_empty
       end
     end
   end
@@ -169,6 +182,19 @@ RSpec.describe DashboardData do
         data = described_class.new(users(:one))
 
         expect(data.budget_comparisons.map { |c| c[:category_name] }).not_to include("#{categories(:account_transfer).name} (avg)")
+      end
+    end
+
+    it "sorts by the size of the deviation, largest first" do
+      MonthlySummary.create!(
+        user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month, total_spent_cents: 21_000
+      )
+
+      travel_to budgets(:one).effective_month + 10.days do
+        data = described_class.new(users(:one))
+        deltas = data.budget_comparisons.map { |c| c[:delta_pct].abs }
+
+        expect(deltas).to eq(deltas.sort.reverse)
       end
     end
   end
