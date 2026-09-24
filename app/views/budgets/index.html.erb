@@ -9,7 +9,8 @@
         class: "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500" %>
 </div>
 
-<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+<h2 class="mb-3 text-base font-semibold text-gray-900">Your budgets</h2>
+<div class="mb-8 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
   <% if @budgets.any? %>
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
@@ -42,3 +43,34 @@
     <p class="px-6 py-8 text-center text-sm text-gray-500">No budgets yet.</p>
   <% end %>
 </div>
+
+<% if @suggested_budgets.any? %>
+  <h2 class="mb-3 text-base font-semibold text-gray-900">Suggested from trailing 3-month average</h2>
+  <p class="-mt-2 mb-3 text-sm text-gray-500">
+    Categories with recent spending but no budget set for <%= Date.current.strftime("%B %Y") %>.
+  </p>
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Category</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">3-month average</th>
+          <th scope="col" class="px-6 py-3"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <% @suggested_budgets.each do |suggestion| %>
+          <tr class="hover:bg-gray-50">
+            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= suggestion[:category].name %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= number_to_currency(suggestion[:average_cents] / 100.0) %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
+              <%= link_to "Set budget",
+                    new_budget_path(category_id: suggestion[:category].id, monthly_limit: suggestion[:average_cents] / 100.0),
+                    class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

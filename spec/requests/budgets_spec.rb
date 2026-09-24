@@ -17,6 +17,45 @@ RSpec.describe "Budgets", type: :request do
       expect(response.body).to include(categories(:dining).name)
       expect(response.body).to include(categories(:restaurants).name)
     end
+
+    it "suggests a trailing 3-month average for a category with spend but no budget this month" do
+      month = budgets(:one).effective_month
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month, total_spent_cents: 12_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 1.month, total_spent_cents: 9_000)
+      MonthlySummary.create!(user: users(:one), category: categories(:account_transfer), month: month - 2.months, total_spent_cents: 3_000)
+
+      travel_to month + 10.days do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get budgets_path
+
+        expect(response.body).to include("Suggested from trailing 3-month average")
+        expect(response.body).to include(categories(:account_transfer).name)
+        expect(response.body).to include("$40.00") # (9_000 + 3_000 + 0) / 3 = 4_000 cents
+      end
+    end
+
+    it "does not suggest a category the user already budgeted this month" do
+      travel_to budgets(:one).effective_month + 10.days do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get budgets_path
+
+        expect(response.body).not_to include("Suggested from trailing 3-month average")
+      end
+    end
+  end
+
+  describe "GET /budgets/new" do
+    it "prefills the category and amount from a suggested budget" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get new_budget_path(category_id: categories(:restaurants).id, monthly_limit: "42.5")
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(%(value="42.50"))
+      expect(response.body).to include(%(selected="selected" value="#{categories(:restaurants).id}"))
+    end
   end
 
   describe "POST /budgets" do
