@@ -14,7 +14,22 @@ RSpec.describe "Home", type: :request do
       get root_path
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include(users(:one).email)
+      expect(response.body).to include("Dashboard")
+    end
+
+    it "explains the Plaid/Kafka data pipeline near the top of the page" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get root_path
+
+      expect(response.body).to include("How this works")
+      expect(response.body).to include("Plaid")
+      expect(response.body).to include("Kafka")
+      expect(response.body).to include("RabbitMQ")
+      expect(response.body).to include("webhook")
+      expect(response.body).to include("Plaid's")
+      expect(response.body).to include("API")
+      expect(response.body).not_to include("CQRS")
     end
 
     it "shows the spent-this-month KPI tile" do
@@ -56,7 +71,7 @@ RSpec.describe "Home", type: :request do
       end
     end
 
-    it "shows the over-budget KPI tile" do
+    it "shows the over-budget KPI tile as a count, not a list of names" do
       MonthlySummary.create!(
         user: users(:one), category: categories(:restaurants), month: budgets(:two).effective_month,
         total_spent_cents: budgets(:two).monthly_limit_cents + 1
@@ -68,7 +83,18 @@ RSpec.describe "Home", type: :request do
         get root_path
 
         expect(response.body).to include("Over budget")
-        expect(response.body).to include(categories(:restaurants).name)
+        expect(response.body).to include("1 category")
+      end
+    end
+
+    it "shows the over-budget count and label together with no over-budget categories" do
+      travel_to budgets(:one).effective_month do
+        post login_path, params: { email: users(:one).email, password: "password123" }
+
+        get root_path
+
+        expect(response.body).to include("0 categories")
+        expect(response.body).to include("All categories on track")
       end
     end
 
@@ -156,6 +182,7 @@ RSpec.describe "Home", type: :request do
         get root_path
 
         expect(response.body).to include("Spending by category")
+        expect(response.body).not_to include("From the nightly summary rebuild")
         expect(response.body).to include(categories(:dining).name)
         expect(response.body).to include('data-controller="category-chart"')
         expect(response.body).to include("<title>#{categories(:dining).name}: $45.99</title>")

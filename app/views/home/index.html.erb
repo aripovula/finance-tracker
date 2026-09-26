@@ -2,7 +2,20 @@
 
 <div class="mb-8">
   <h1 class="text-2xl font-semibold text-gray-900">Dashboard</h1>
-  <p class="mt-1 text-sm text-gray-500">Signed in as <%= current_user.email %></p>
+</div>
+
+<div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+  <p>
+    <strong class="font-semibold">How this works:</strong>
+    When a bank account has activity, Plaid pushes a webhook - a notification that new data is
+    ready, not the transaction data itself. The app verifies it and publishes that event onto a
+    Kafka topic, where independent consumers pull the actual transactions via Plaid's API,
+    categorize each one, check it against the user's budgets, and flag anomalies as they
+    arrive. Because the webhook carries no data, replaying it is always safe - which is exactly
+    why Kafka (not RabbitMQ) is the right fit: a consumer that crashes for an hour just resumes
+    from its last committed offset and re-pulls, instead of losing the notification the moment
+    it's read.
+  </p>
 </div>
 
 <% if @budget_alerts.any? %>
@@ -53,14 +66,12 @@
   <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
     <% over_budget = @dashboard.over_budget_comparisons %>
     <p class="text-sm font-medium text-gray-500">Over budget</p>
-    <p class="mt-2 text-2xl font-semibold text-gray-900"><%= over_budget.size %></p>
-    <p class="mt-1 text-xs font-medium <%= over_budget.any? ? "text-red-600" : "text-gray-400" %>">
-      <% if over_budget.any? %>
-        <%= over_budget.map { |comparison| comparison[:category_name] }.join(", ") %>
-      <% else %>
-        All categories on track
-      <% end %>
+    <p class="mt-2 text-2xl font-semibold text-gray-900">
+      <%= over_budget.size %> <%= over_budget.size == 1 ? "category" : "categories" %>
     </p>
+    <% if over_budget.empty? %>
+      <p class="mt-1 text-xs font-medium text-gray-400">All categories on track</p>
+    <% end %>
   </div>
 </div>
 
@@ -132,10 +143,7 @@
   </div>
 
   <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm lg:row-span-2 lg:self-start" data-controller="category-chart">
-    <div class="mb-4">
-      <h2 class="text-base font-semibold text-gray-900">Spending by category</h2>
-      <p class="mt-1 text-sm text-gray-500">From the nightly summary rebuild — not computed live from transactions.</p>
-    </div>
+    <h2 class="mb-4 text-base font-semibold text-gray-900">Spending by category</h2>
     <% breakdown = @dashboard.category_breakdown(months_count: 4) %>
     <% if breakdown[:rows].any? { |row| row[:values].sum.positive? } %>
       <% chart_width = 480; chart_height = 620; bottom_pad = 24; top_pad = 10 %>
@@ -176,7 +184,7 @@
       </div>
     <% else %>
       <p class="px-2 py-8 text-center text-sm text-gray-500">
-        No spending data yet. Browse your
+        No spending data yet. Browse the user's
         <%= link_to "categories", categories_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
         or connect a <%= link_to "bank account", bank_accounts_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
         to get started.
@@ -226,7 +234,7 @@
 <div class="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
   <div class="mb-4 flex items-baseline justify-between">
     <h2 class="text-base font-semibold text-gray-900">Investment transfers</h2>
-    <span class="text-xs text-gray-500">From your Plaid-categorized transactions</span>
+    <span class="text-xs text-gray-500">From the user's Plaid-categorized transactions</span>
   </div>
   <% recent_investments = @dashboard.recent_investment_transactions %>
   <% if recent_investments.any? %>
