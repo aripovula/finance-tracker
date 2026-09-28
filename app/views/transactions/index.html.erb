@@ -5,6 +5,17 @@
   <p class="mt-1 text-sm text-gray-500">Transactions synced from the user's connected bank accounts.</p>
 </div>
 
+<div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+  <p>
+    <strong class="font-semibold">How this works:</strong>
+    Each transaction is pulled with a cursor-based Plaid <code>/transactions/sync</code> call.
+    Re-syncing only fetches what changed, not the full history again. A separate anomaly
+    detector consumer flags a transaction as "Unusual" when it's more than 3x the trailing
+    3-month average for that category. It only starts flagging once at least 3 prior
+    transactions exist. A first purchase in a category is never flagged just for being new.
+  </p>
+</div>
+
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
   <% if @transactions.any? %>
     <table class="min-w-full divide-y divide-gray-200">

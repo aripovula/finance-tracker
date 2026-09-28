@@ -16,6 +16,7 @@ RSpec.describe "Categories", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(categories(:dining).name)
       expect(response.body).to include(categories(:restaurants).name)
+      expect(response.body).to include("How this works")
     end
   end
 end

@@ -9,6 +9,21 @@
         class: "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500" %>
 </div>
 
+<div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+  <p>
+    <strong class="font-semibold">How this works:</strong>
+    Each budget is compared against that category's real spend for the month. The spend
+    comes from the same monthly_summaries table the dashboard reads, not computed live from
+    transactions. A user can set their own budget for a category. When they do, that budget
+    is used instead of a trailing-average one. A category with no user-set budget still gets
+    a suggested amount below, based on its trailing 3-month average spend. Separately, a
+    budget_checker Kafka consumer re-checks every budget each time a transaction webhook
+    arrives and writes an alert when a category goes over. Alerts are throttled to one per
+    category per day with a Redis SET NX EX key, so a burst of transactions in one day doesn't
+    produce a burst of repeat alerts.
+  </p>
+</div>
+
 <h2 class="mb-3 text-base font-semibold text-gray-900">User's budgets</h2>
 <div class="mb-8 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
   <% if @budgets.any? %>

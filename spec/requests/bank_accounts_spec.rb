@@ -15,6 +15,7 @@ RSpec.describe "Bank accounts", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(bank_accounts(:one).institution_name)
+      expect(response.body).to include("How this works")
     end
   end
 

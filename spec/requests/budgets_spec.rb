@@ -16,6 +16,7 @@ RSpec.describe "Budgets", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(categories(:dining).name)
       expect(response.body).to include(categories(:restaurants).name)
+      expect(response.body).to include("How this works")
     end
 
     it "suggests a trailing 3-month average for a category with spend but no budget this month" do

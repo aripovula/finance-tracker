@@ -16,6 +16,7 @@ RSpec.describe "Transactions", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(transactions(:one).merchant_name)
       expect(response.body).to include(transactions(:two).merchant_name)
+      expect(response.body).to include("How this works")
     end
 
     it "does not include another user's transactions" do

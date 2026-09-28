@@ -7,14 +7,13 @@
 <div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
   <p>
     <strong class="font-semibold">How this works:</strong>
-    When a bank account has activity, Plaid pushes a webhook - a notification that new data is
-    ready, not the transaction data itself. The app verifies it and publishes that event onto a
-    Kafka topic, where independent consumers pull the actual transactions via Plaid's API,
-    categorize each one, check it against the user's budgets, and flag anomalies as they
-    arrive. Because the webhook carries no data, replaying it is always safe - which is exactly
-    why Kafka (not RabbitMQ) is the right fit: a consumer that crashes for an hour just resumes
-    from its last committed offset and re-pulls, instead of losing the notification the moment
-    it's read.
+    Plaid sends a webhook when a bank account has activity. That webhook is just a
+    notification, not the transaction data itself. The app verifies it and publishes the
+    event onto a Kafka topic. From there, independent consumers pull the real transactions
+    through Plaid's API, categorize each one, check it against the user's budgets, and flag
+    anomalies. The webhook carries no data, so replaying it is always safe. That's why Kafka
+    fits better than RabbitMQ here: a consumer that crashes for an hour just resumes from its
+    last committed offset and re-pulls. Nothing gets lost.
   </p>
 </div>
 

@@ -5,6 +5,18 @@
   <p class="mt-1 text-sm text-gray-500">Spending categories used to organize the user's transactions and budgets.</p>
 </div>
 
+<div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+  <p>
+    <strong class="font-semibold">How this works:</strong>
+    These categories come from Plaid's real Personal Finance Category taxonomy. That's about
+    120 primary and detailed codes, seeded once rather than invented for this app. A
+    categorizer consumer assigns one to each transaction by matching Plaid's own category
+    code. A small set of merchant-name overrides catches the low-confidence generic buckets
+    Plaid itself falls back to. The filter box below runs in JavaScript. It never makes a
+    request to the server.
+  </p>
+</div>
+
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" data-controller="category-list">
   <% if @categories.any? %>
     <div class="border-b border-gray-200 p-4">
