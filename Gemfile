@@ -91,4 +91,4 @@ gem "rswag-ui"
 
 # Pin below 3.0: JSON.parse dropped the positional options-hash argument that
 # ActiveSupport::JSON.decode relies on, which breaks all JSON request parsing.
-gem "json", "~> 2.9"
+gem "json", "~> 3.0"
