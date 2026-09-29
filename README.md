@@ -186,10 +186,10 @@ monthly_summaries — the CQRS read model; (user, category, month) unique; rebui
 
 ### Prerequisites
 
-- `asdf` with the `ruby`, `nodejs`, `postgres`, `redis`, `java`, and `kafka` plugins installed.
-  Ruby is pinned in `.ruby-version`, and Java/Kafka are pinned in this repo's `.tool-versions`;
-  Postgres, Redis, and Node aren't version-pinned here, so install whatever versions your own
-  `asdf` setup already uses for those.
+- `asdf` with the `ruby`, `nodejs`, `postgres`, `redis`, `java`, `kafka`, and `k6` plugins
+  installed. Ruby is pinned in `.ruby-version`, and Java/Kafka/k6 are pinned in this repo's
+  `.tool-versions`; Postgres, Redis, and Node aren't version-pinned here, so install whatever
+  versions your own `asdf` setup already uses for those.
 - A free [Plaid Sandbox](https://dashboard.plaid.com) account (`client_id` + `secret`, no real
   bank needed)
 
@@ -273,6 +273,32 @@ the in-flight redirect.
 
 CI runs `spec/e2e` as its own `e2e` job, separate from the main `rspec` job, so a flaky browser
 run never blocks the rest of the suite (see `.github/workflows/ci.yml`).
+
+### Load testing
+
+```bash
+bin/dev                           # in one terminal - the app needs to be running
+bin/loadtest                      # in another - seeds data, then runs k6
+```
+
+`loadtest/monthly_summary.js` (a [k6](https://k6.io) script) load-tests
+`GET /api/v1/dashboard/monthly_summary` — the ETag/CQRS read path described above. Each
+iteration hits it twice: once with no `If-None-Match` (a real render), then again with the ETag
+the first response returned. That second call should get back a `304` — the read model hasn't
+changed, so there's nothing to re-render or re-send.
+
+The enforced thresholds are correctness-based (cache-hit rate, error rate), not latency-based —
+on this small a demo dataset, the server-side cost of a `304` vs. a full render is a few
+milliseconds at most, easily lost in whatever thread count Puma happens to be running with on a
+given machine. The concrete, environment-independent signal is response *size*: a `304` has an
+empty body, so bytes transferred is tracked as the real before/after instead of a latency target
+that would be flaky on someone else's laptop.
+
+`bin/loadtest` runs `loadtest/seed.rb` first, which gives a dedicated `loadtest@example.com` user
+some categorized, posted transactions and rebuilds `monthly_summaries` from them — otherwise the
+dashboard for a fresh user has nothing in it to cache. That rebuild step (`NightlySummaryRebuildJob`,
+the same job the real nightly cron would run) recomputes `monthly_summaries` for *every* user, not
+just the load-test one, so only run it against a local/dev database, never anything shared.
 
 ## Project structure
 
