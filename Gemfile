@@ -52,7 +52,7 @@ gem "jwt", "~> 3.3"
 gem "karafka", "~> 2.5"
 
 # Redis client, used only for the budget-alert throttle key [https://github.com/redis/redis-rb]
-gem "redis", "~> 5.3"
+gem "redis", "~> 6.0"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
