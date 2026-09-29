@@ -77,9 +77,11 @@ group :development do
 end
 
 group :test do
-  # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
+  # End-to-end/system testing: Capybara drives a real browser, Cuprite talks to it
+  # directly over the Chrome DevTools Protocol (no Selenium, no npm/Node driver -
+  # both gems, real Chrome/Chromium binary already present in CI). See CLAUDE.md.
   gem "capybara"
-  gem "selenium-webdriver"
+  gem "cuprite"
 
   # Generate OpenAPI/Swagger docs from RSpec request specs [https://github.com/rswag/rswag]
   gem "rswag-specs"
