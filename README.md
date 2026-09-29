@@ -18,6 +18,30 @@ explains its own mechanics in plain language via "How this works" notes on each 
 
 ## How data flows in
 
+```mermaid
+flowchart TD
+    A["User connects a bank account<br/>via Plaid Link"] --> B[("bank_accounts<br/>access token encrypted at rest")]
+    B --> C["Bank account has new activity"]
+    C -->|"Plaid sends a webhook<br/>(notification only, no data)"| D["Webhooks controller<br/>verifies ES256 signature"]
+    D -->|"publishes raw event"| E[("Kafka topic<br/>plaid_webhook_events")]
+
+    E --> F["Categorizer consumer"]
+    E --> G["Budget checker consumer"]
+    E --> H["Anomaly detector consumer"]
+
+    F -->|"pulls transactions via Plaid API,<br/>assigns PFC category"| I[("transactions")]
+
+    G -->|"compares spend vs. budget"| I
+    G -->|"throttles 1 alert/category/day"| J[("Redis")]
+    G -->|"writes alert if over"| K[("budget_alerts")]
+
+    H -->|"flags if > 3x trailing<br/>3-month average"| I
+
+    I -->|"nightly rebuild"| L["Nightly Solid Queue job"]
+    L --> M[("monthly_summaries<br/>CQRS read model")]
+    M -->|"ETag-cached reads"| N["Dashboard & JSON API"]
+```
+
 1. A user connects a bank account through **Plaid Link** (OAuth-style flow). The app exchanges
    Link's public token for a permanent access token, encrypted at rest.
 2. When that account has new activity, **Plaid sends a webhook** — a notification that new
@@ -98,6 +122,54 @@ Kafka's wire protocol is unchanged either way, so this only affects local dev; a
 can use a managed Kafka service (e.g. AWS MSK) without any client code changes.
 
 ## Data model
+
+```mermaid
+erDiagram
+    USERS ||--o{ BANK_ACCOUNTS : owns
+    USERS ||--o{ BUDGETS : sets
+    USERS ||--o{ MONTHLY_SUMMARIES : has
+    BANK_ACCOUNTS ||--o{ TRANSACTIONS : contains
+    CATEGORIES ||--o{ TRANSACTIONS : classifies
+    CATEGORIES ||--o{ BUDGETS : "budgeted for"
+    CATEGORIES ||--o{ MONTHLY_SUMMARIES : "summarized for"
+    CATEGORIES ||--o{ CATEGORIES : "parent of"
+    BUDGETS ||--o{ BUDGET_ALERTS : triggers
+
+    USERS {
+        string email
+        string password_digest
+    }
+    BANK_ACCOUNTS {
+        string institution_name
+        string plaid_access_token
+        string plaid_cursor
+    }
+    CATEGORIES {
+        string name
+        string plaid_category_id
+        bigint parent_category_id
+    }
+    TRANSACTIONS {
+        integer amount_cents
+        string merchant_name
+        string status
+        datetime posted_at
+        datetime flagged_anomaly_at
+        jsonb raw_payload
+    }
+    BUDGETS {
+        integer monthly_limit_cents
+        date effective_month
+    }
+    BUDGET_ALERTS {
+        integer spent_cents
+        datetime dismissed_at
+    }
+    MONTHLY_SUMMARIES {
+        integer total_spent_cents
+        date month
+    }
+```
 
 ```
 users             — email/password auth
