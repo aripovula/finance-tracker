@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# Seeds load-test data (see loadtest/seed.rb) and runs the k6 script against
+# the dashboard's ETag-cached read model (loadtest/monthly_summary.js).
+#
+# Requires the app server already running (bin/dev) at BASE_URL
+# (default http://localhost:3000).
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+bin/rails runner loadtest/seed.rb
+exec k6 run loadtest/monthly_summary.js
