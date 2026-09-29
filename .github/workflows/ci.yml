@@ -116,4 +116,48 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/finance_tracker_test
           RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
           REDIS_URL: redis://localhost:6379/0
-        run: bundle exec rspec
+        run: bundle exec rspec --exclude-pattern "spec/e2e/**/*_spec.rb"
+
+  # spec/e2e drives real Chrome via Capybara+Cuprite over the DevTools Protocol
+  # (no Selenium, no npm/Node driver) - kept out of the rspec job above so a
+  # flaky browser run never blocks the rest of the suite. ubuntu-latest ships
+  # Chrome preinstalled, so Ferrum finds it without a BROWSER_PATH override.
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: finance_tracker_test
+        ports:
+          - 5432:5432
+        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Prepare test database
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/finance_tracker_test
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: bin/rails db:schema:load
+
+      - name: Run E2E specs
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/finance_tracker_test
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: bundle exec rspec spec/e2e
