@@ -1,0 +1,28 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "876ba0a721daf8ded687e2fcd67694435cf660201a767bb7dfa10a302d5306ac",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/services/dashboard_data.rb",
+      "line": 147,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "Transaction.joins(:bank_account, :category).where(:bank_accounts => ({ :user_id => user.id })).where(:status => :posted).where(\"transactions.amount_cents > 0\").where([\"categories.plaid_category_id = ? OR (#{[\"CD DEPOSIT\"].map do\n \"transactions.merchant_name ILIKE ?\"\n end.join(\" OR \")})\", \"TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS\", *[\"CD DEPOSIT\"].map do\n \"%#{:BRAKEMAN_SAFE_LITERAL}%\"\n end])",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "DashboardData",
+        "method": "investment_transactions_scope"
+      },
+      "user_input": "[\"CD DEPOSIT\"].map do\n \"transactions.merchant_name ILIKE ?\"\n end.join(\" OR \")",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "Reviewed 2026-09: the interpolated segment (keyword_clause) only repeats the fixed literal string \"transactions.merchant_name ILIKE ?\" once per array element - the map block never references the element itself, so its output depends only on array length, not content. All real values (INVESTMENT_CATEGORY_CODE and keyword_binds) are passed as separate bind params via the array where() form. No user-controlled data reaches the SQL text."
+    }
+  ],
+  "brakeman_version": "8.0.6"
+}
