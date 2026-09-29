@@ -109,7 +109,7 @@ Budgets page also lists these as concrete suggestions the user can accept with o
 | Bank data | Official `plaid` gem, Sandbox environment | Real OAuth flow, fake bank, no real credentials |
 | Auth | JWT (short-lived access token + refresh token rotation) | Used by the `/api/v1` JSON endpoints |
 | API docs | `rswag` (OpenAPI generated from request specs) | Live at `/api-docs` |
-| Testing | RSpec, request specs against a real Postgres (no DB mocking) | Integration tests hit the real thing, not mocks |
+| Testing | RSpec (request/model/service/consumer specs against a real Postgres, no DB mocking) + Capybara/Cuprite for E2E | Integration tests hit the real thing, not mocks; E2E drives real Chrome with no npm/Node in the loop |
 | Frontend | Turbo + Stimulus + Tailwind CSS v4, no SPA framework | Hand-rolled inline SVG charts on the dashboard, no charting library |
 
 ### Local dev runs natively, not in Docker
@@ -240,6 +240,39 @@ bin/brakeman              # static security scan
 
 OpenAPI docs generated from the request specs are served at `/api-docs` once the app is
 running.
+
+### End-to-end tests
+
+```bash
+bundle exec rspec spec/e2e   # runs against real Chrome/Chromium
+```
+
+`spec/e2e` drives a real browser through the server-rendered pages — login, the Stimulus-driven
+category filter, budget create/edit/delete, transaction browsing, bank account listing, logout.
+It uses **Capybara + [Cuprite](https://github.com/rubycdp/cuprite)**, which talks to Chrome
+directly over the Chrome DevTools Protocol, instead of Playwright, Cypress, or Selenium.
+Playwright and Cypress both still shell out to an npm/Node-based driver under the hood even from
+their Ruby/Rails wrapper gems — there's no way to use either without an `npm install`. Selenium
+would avoid npm too, but adds a WebDriver process Cuprite doesn't need. Cuprite needs Chrome or
+Chromium on `PATH` (or `BROWSER_PATH` set) and nothing else — no extra language runtime.
+
+These specs use RSpec's own `type: :feature` (via `capybara/rspec`), not Rails' `type: :system`.
+The two aren't interchangeable in every environment: `type: :system` pulls in
+`ActionDispatch::SystemTesting::TestHelpers::SetupAndTeardown`, which reliably broke Cuprite's
+Chrome subprocess in this project's dev sandbox even though the identical driver/options worked
+everywhere else tried (standalone script, full Rails boot, a live Capybara/Puma server thread).
+Plain `type: :feature` sidesteps that module and needs no `driven_by` call — the driver is set
+once in `spec/support/capybara.rb`.
+
+A real browser has its own cookie jar, separate from the RSpec process, so specs log in by
+actually driving the login form (`log_in_as` in `spec/support/e2e_helpers.rb`), never a
+request-spec-style `post`. That helper also asserts on the post-login page before returning,
+because Turbo intercepts the login form submit and swaps the DOM via `fetch()` — there's no real
+browser navigation event for Cuprite to wait on, so a bare `visit` right after the click can race
+the in-flight redirect.
+
+CI runs `spec/e2e` as its own `e2e` job, separate from the main `rspec` job, so a flaky browser
+run never blocks the rest of the suite (see `.github/workflows/ci.yml`).
 
 ## Project structure
 
