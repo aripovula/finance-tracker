@@ -10,5 +10,12 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+BASE_URL="${BASE_URL:-http://localhost:3000}"
+
+if ! curl -s -o /dev/null "$BASE_URL/up"; then
+  echo "No server responding at $BASE_URL/up - start it first with bin/dev in another terminal." >&2
+  exit 1
+fi
+
 bin/rails runner loadtest/seed.rb
 exec k6 run loadtest/monthly_summary.js
