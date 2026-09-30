@@ -300,6 +300,18 @@ dashboard for a fresh user has nothing in it to cache. That rebuild step (`Night
 the same job the real nightly cron would run) recomputes `monthly_summaries` for *every* user, not
 just the load-test one, so only run it against a local/dev database, never anything shared.
 
+`loadtest/login.js` load-tests `POST /api/v1/auth/login` on its own (`k6 run loadtest/login.js`,
+no `bin/loadtest` wrapper or seed step needed — it registers its own fixed test account in
+`setup()`, which is idempotent). Unlike the dashboard script, this isn't testing a cache: it's a
+genuine capacity question, since `has_secure_password` runs a real bcrypt comparison on every
+login, and that cost is deliberate (that's the whole point of bcrypt), so it directly caps how
+many logins/sec the app can sustain. Thresholds here are error-rate only, not latency — bcrypt's
+wall-clock cost depends on the CPU it runs on, so a fixed millisecond target would be flaky on a
+different machine; watch `http_req_duration` in the output to see latency move as concurrency
+ramps up instead. On this project's dev machine, login averaged ~840ms per request at just 10
+concurrent users — versus ~150ms for the dashboard endpoint at the same concurrency — entirely
+because of the bcrypt hash, not anything else the login endpoint does.
+
 ## Project structure
 
 ```
