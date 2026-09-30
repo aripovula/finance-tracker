@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+
+# Seeds LOADTEST_USER_COUNT (default 20) distinct users, each with their own
+# bank account and transactions, then runs the k6 script proving per-user
+# data isolation holds under concurrent load on GET /api/v1/transactions
+# (see loadtest/transactions.js).
+#
+# Requires the app server already running (bin/dev) at BASE_URL
+# (default http://localhost:3000).
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+BASE_URL="${BASE_URL:-http://localhost:3000}"
+
+if ! curl -s -o /dev/null "$BASE_URL/up"; then
+  echo "No server responding at $BASE_URL/up - start it first with bin/dev in another terminal." >&2
+  exit 1
+fi
+
+bin/rails runner loadtest/seed_transaction_users.rb
+exec k6 run loadtest/transactions.js
