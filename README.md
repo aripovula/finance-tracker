@@ -312,6 +312,32 @@ ramps up instead. On this project's dev machine, login averaged ~840ms per reque
 concurrent users — versus ~150ms for the dashboard endpoint at the same concurrency — entirely
 because of the bcrypt hash, not anything else the login endpoint does.
 
+```bash
+bin/dev                           # in one terminal
+bin/loadtest-transactions         # in another - seeds LOADTEST_USER_COUNT users, then runs k6
+```
+
+`loadtest/transactions.js` load-tests `GET /api/v1/transactions` under `LOADTEST_USER_COUNT`
+(default 20) *distinct*, concurrently authenticated users, each fetching their own transaction
+list at the same time. The point isn't just "no 500s under load" — every check asserts what came
+back actually belongs to that request's own user (matching `bank_account_id` and transaction
+count), proving per-user data isolation holds while many requests are in flight, not merely that
+the server stayed up.
+
+`loadtest/seed_transaction_users.rb` creates the users, their bank accounts, and a few
+transactions each, and mints each one's JWT directly via `JsonWebToken.encode` — skipping the
+HTTP login round trip (and its bcrypt cost, see above) entirely, since this test is about the
+transactions read path, not login; mixing the two would conflate which endpoint a slow response
+was actually coming from. Tokens are written to `tmp/loadtest_transaction_users.json` (gitignored,
+regenerated on every run) for the k6 script to load.
+
+20 concurrent users, not 2000: seeding and JWT generation for this test happen in-process and are
+fast regardless of count, but the point of a number like this is to be something you can actually
+reason about and re-run quickly while iterating. A number like 2000 tells you more about how many
+Puma threads and DB connections a given deployment has than about this app's own correctness —
+that's a deployment-sizing question, not something the load test itself needs to answer. Bump
+`LOADTEST_USER_COUNT` if you want to see where a given local setup actually starts failing.
+
 ## Project structure
 
 ```
