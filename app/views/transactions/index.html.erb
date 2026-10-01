@@ -1,8 +1,12 @@
 <% content_for :title, "Transactions" %>
 
-<div class="mb-6">
-  <h1 class="text-2xl font-semibold text-gray-900">Transactions</h1>
-  <p class="mt-1 text-sm text-gray-500">Transactions synced from the user's connected bank accounts.</p>
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold text-gray-900">Transactions</h1>
+    <p class="mt-1 text-sm text-gray-500">Transactions synced from the user's connected bank accounts.</p>
+  </div>
+  <%= link_to "Export CSV", transactions_path(format: :csv),
+        class: "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500" %>
 </div>
 
 <div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
@@ -14,7 +18,9 @@
     3-month average for that category. It only starts flagging once at least 3 prior
     transactions exist. A first purchase in a category is never flagged just for being new.
     The search and date filters below run in JavaScript, like the categories page's filter.
-    They never make a request to the server.
+    They never make a request to the server. Exporting CSV always downloads every one of the
+    user's transactions, not just whatever the filters are currently showing, since the server
+    never finds out what they're set to.
   </p>
 </div>
 
