@@ -24,7 +24,9 @@
     The Link widget swaps it for a public token once a bank is chosen. The app then exchanges
     that public token for a permanent access token, the one credential that can pull this
     account's data going forward. That access token is encrypted at rest with Active Record
-    encryption. It's never stored or shown in plaintext.
+    encryption. It's never stored or shown in plaintext. Each institution gets a colored initial
+    avatar rather than its real logo, since this app has no licensing relationship with the
+    banks Plaid Sandbox simulates.
   </p>
 </div>
 
@@ -41,7 +43,15 @@
       <tbody class="divide-y divide-gray-200">
         <% @bank_accounts.each do |bank_account| %>
           <tr class="hover:bg-gray-50">
-            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900"><%= bank_account.institution_name %></td>
+            <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+              <div class="flex items-center gap-3">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                      style="background-color: <%= avatar_color(bank_account.institution_name) %>">
+                  <%= avatar_initial(bank_account.institution_name) %>
+                </span>
+                <%= bank_account.institution_name %>
+              </div>
+            </td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">&bull;&bull;&bull;&bull; <%= bank_account.mask %></td>
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= bank_account.created_at.strftime("%B %-d, %Y") %></td>
           </tr>
