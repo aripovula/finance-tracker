@@ -90,11 +90,15 @@
           </tr>
         <% end %>
         <tr data-transactions-filter-target="emptyState" hidden>
-          <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No transactions match the user's filters.</td>
+          <td colspan="5"><%= empty_state(:search) { "No transactions match the user's filters." } %></td>
         </tr>
       </tbody>
     </table>
   <% else %>
-    <p class="px-6 py-8 text-center text-sm text-gray-500">No transactions yet. Connect a bank account to get started.</p>
+    <%= empty_state(:transactions) do %>
+      No transactions yet.
+      <%= link_to "Connect a bank account", bank_accounts_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
+      to get started.
+    <% end %>
   <% end %>
 </div>

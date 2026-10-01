@@ -135,9 +135,10 @@
         <% end %>
       </div>
     <% else %>
-      <p class="px-2 py-8 text-center text-sm text-gray-500">
-        No budgets set for this month. <%= link_to "Set one up", new_budget_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>.
-      </p>
+      <%= empty_state(:budgets) do %>
+        No budgets set for this month.
+        <%= link_to "Set one up", new_budget_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>.
+      <% end %>
     <% end %>
   </div>
 
@@ -182,12 +183,12 @@
         <% end %>
       </div>
     <% else %>
-      <p class="px-2 py-8 text-center text-sm text-gray-500">
+      <%= empty_state(:chart) do %>
         No spending data yet. Browse the user's
         <%= link_to "categories", categories_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
         or connect a <%= link_to "bank account", bank_accounts_path, class: "font-medium text-indigo-600 hover:text-indigo-500" %>
         to get started.
-      </p>
+      <% end %>
     <% end %>
   </div>
 
@@ -225,7 +226,7 @@
         <% end %>
       </svg>
     <% else %>
-      <p class="px-2 py-8 text-center text-sm text-gray-500">No spending data yet.</p>
+      <%= empty_state(:chart) { "No spending data yet." } %>
     <% end %>
   </div>
 </div>
@@ -249,6 +250,6 @@
       <% end %>
     </ul>
   <% else %>
-    <p class="px-2 py-8 text-center text-sm text-gray-500">No investment transfers yet.</p>
+    <%= empty_state(:chart) { "No investment transfers yet." } %>
   <% end %>
 </div>

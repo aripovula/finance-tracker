@@ -55,7 +55,7 @@
       </tbody>
     </table>
   <% else %>
-    <p class="px-6 py-8 text-center text-sm text-gray-500">No budgets yet.</p>
+    <%= empty_state(:budgets) { "No budgets yet." } %>
   <% end %>
 </div>
 

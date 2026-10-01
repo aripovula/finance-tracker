@@ -54,11 +54,11 @@
           </tr>
         <% end %>
         <tr data-category-list-target="emptyState" hidden>
-          <td colspan="2" class="px-6 py-8 text-center text-sm text-gray-500">No categories match the user's filter.</td>
+          <td colspan="2"><%= empty_state(:search) { "No categories match the user's filter." } %></td>
         </tr>
       </tbody>
     </table>
   <% else %>
-    <p class="px-6 py-8 text-center text-sm text-gray-500">No categories yet.</p>
+    <%= empty_state(:categories) { "No categories yet." } %>
   <% end %>
 </div>
