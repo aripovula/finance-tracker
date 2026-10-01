@@ -1,4 +1,5 @@
 require "rails_helper"
+require "csv"
 
 RSpec.describe "Transactions", type: :request do
   describe "GET /transactions" do
@@ -48,6 +49,44 @@ RSpec.describe "Transactions", type: :request do
       get transactions_path
 
       expect(response.body).to include("Unusual")
+    end
+  end
+
+  describe "GET /transactions.csv" do
+    it "downloads every one of the user's transactions, not just a filtered subset" do
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get transactions_path(format: :csv)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/csv")
+
+      rows = CSV.parse(response.body, headers: true)
+      expect(rows.headers).to eq([ "Merchant", "Category", "Amount", "Status", "Posted" ])
+      expect(rows.map { |row| row["Merchant"] }).to contain_exactly(
+        transactions(:one).merchant_name, transactions(:two).merchant_name
+      )
+    end
+
+    it "does not include another user's transactions" do
+      post login_path, params: { email: users(:two).email, password: "password123" }
+
+      get transactions_path(format: :csv)
+
+      expect(response.body).not_to include(transactions(:one).merchant_name)
+    end
+
+    it "neutralizes a leading formula character in a merchant name" do
+      Transaction.create!(
+        bank_account: bank_accounts(:one), plaid_transaction_id: "txn-formula-1",
+        amount_cents: 100, merchant_name: "=cmd|'/c calc'!A1", posted_at: Time.current, status: "posted"
+      )
+      post login_path, params: { email: users(:one).email, password: "password123" }
+
+      get transactions_path(format: :csv)
+
+      rows = CSV.parse(response.body, headers: true)
+      expect(rows.map { |row| row["Merchant"] }).to include("'=cmd|'/c calc'!A1")
     end
   end
 
