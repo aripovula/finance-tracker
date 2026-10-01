@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+/* Turbo's built-in top-of-page progress bar, recolored to match the brand
+   indigo instead of its default blue. */
+.turbo-progress-bar {
+  background-color: #4f46e5;
+  height: 2px;
+}
+
+/* Turbo Drive swaps in a new <body> on every visit, so a CSS animation
+   defined on it re-triggers each navigation - a subtle fade-in instead of
+   content just appearing instantly. */
+body {
+  animation: fade-in 150ms ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Turbo disables a form's submit button for the duration of its request
+   (to prevent double-submits) regardless of markup - this adds a small
+   spinner to that already-disabled state using currentColor, so it reads
+   correctly on any button's own text/background color without needing
+   per-button styling. */
+button[type="submit"]:disabled,
+input[type="submit"]:disabled {
+  position: relative;
+  padding-left: 2.25rem;
+  cursor: wait;
+}
+
+button[type="submit"]:disabled::before,
+input[type="submit"]:disabled::before {
+  content: "";
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-top: -0.45rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
