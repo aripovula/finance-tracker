@@ -32,4 +32,18 @@ RSpec.describe "Transactions filter", type: :feature do
 
     expect(page).to have_content("No transactions match the user's filters.")
   end
+
+  it "clears every filter back to showing all transactions" do
+    log_in_as(users(:one))
+    visit transactions_path
+
+    fill_in "Search transactions by merchant or category", with: "chipotle"
+    expect(page).to have_no_content(transactions(:two).merchant_name)
+
+    click_button "Clear filters"
+
+    expect(page).to have_content(transactions(:one).merchant_name)
+    expect(page).to have_content(transactions(:two).merchant_name)
+    expect(find_field("Search transactions by merchant or category").value).to eq("")
+  end
 end
