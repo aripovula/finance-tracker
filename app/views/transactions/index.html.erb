@@ -13,11 +13,35 @@
     detector consumer flags a transaction as "Unusual" when it's more than 3x the trailing
     3-month average for that category. It only starts flagging once at least 3 prior
     transactions exist. A first purchase in a category is never flagged just for being new.
+    The search and date filters below run in JavaScript, like the categories page's filter.
+    They never make a request to the server.
   </p>
 </div>
 
-<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm" data-controller="transactions-filter">
   <% if @transactions.any? %>
+    <div class="flex flex-wrap items-end gap-3 border-b border-gray-200 p-4">
+      <div>
+        <label for="transactions-search" class="block text-xs font-medium text-gray-500">Search</label>
+        <input id="transactions-search" type="search" data-transactions-filter-target="search"
+               data-action="input->transactions-filter#filter"
+               placeholder="Merchant or category&hellip;" aria-label="Search transactions by merchant or category"
+               class="mt-1 block w-full max-w-xs rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label for="transactions-from" class="block text-xs font-medium text-gray-500">From</label>
+        <input id="transactions-from" type="date" data-transactions-filter-target="from"
+               data-action="input->transactions-filter#filter" aria-label="Filter transactions posted on or after"
+               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label for="transactions-to" class="block text-xs font-medium text-gray-500">To</label>
+        <input id="transactions-to" type="date" data-transactions-filter-target="to"
+               data-action="input->transactions-filter#filter" aria-label="Filter transactions posted on or before"
+               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+      </div>
+    </div>
+
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
@@ -30,7 +54,9 @@
       </thead>
       <tbody class="divide-y divide-gray-200">
         <% @transactions.each do |transaction| %>
-          <tr class="hover:bg-gray-50">
+          <tr class="hover:bg-gray-50" data-transactions-filter-target="row"
+              data-search-text="<%= "#{transaction.merchant_name} #{transaction.category&.name}".downcase %>"
+              data-posted-at="<%= transaction.posted_at&.to_date&.iso8601 %>">
             <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
               <%= link_to transaction.merchant_name.presence || "Unknown", transaction_path(transaction), class: "hover:underline" %>
               <% if transaction.flagged_anomaly_at? %>
@@ -57,6 +83,9 @@
             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500"><%= transaction.posted_at&.strftime("%B %-d, %Y") %></td>
           </tr>
         <% end %>
+        <tr data-transactions-filter-target="emptyState" hidden>
+          <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No transactions match the user's filters.</td>
+        </tr>
       </tbody>
     </table>
   <% else %>
