@@ -24,4 +24,11 @@ export default class extends Controller {
       this.emptyStateTarget.hidden = visibleCount !== 0
     }
   }
+
+  clear() {
+    this.searchTarget.value = ""
+    this.fromTarget.value = ""
+    this.toTarget.value = ""
+    this.filter()
+  }
 }

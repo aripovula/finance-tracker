@@ -29,23 +29,34 @@
     <div class="flex flex-wrap items-end gap-3 border-b border-gray-200 p-4">
       <div>
         <label for="transactions-search" class="block text-xs font-medium text-gray-500">Search</label>
-        <input id="transactions-search" type="search" data-transactions-filter-target="search"
-               data-action="input->transactions-filter#filter"
-               placeholder="Merchant or category&hellip;" aria-label="Search transactions by merchant or category"
-               class="mt-1 block w-full max-w-xs rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+        <div class="relative mt-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+               stroke-linejoin="round" class="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-gray-400">
+            <circle cx="10" cy="10" r="6.5"/><path d="M19 19l-4.35-4.35"/>
+          </svg>
+          <input id="transactions-search" type="search" data-transactions-filter-target="search"
+                 data-action="input->transactions-filter#filter"
+                 placeholder="Merchant or category&hellip;" aria-label="Search transactions by merchant or category"
+                 class="block w-full max-w-xs rounded-lg border-gray-300 py-2 pr-3 pl-9 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+        </div>
       </div>
       <div>
         <label for="transactions-from" class="block text-xs font-medium text-gray-500">From</label>
         <input id="transactions-from" type="date" data-transactions-filter-target="from"
                data-action="input->transactions-filter#filter" aria-label="Filter transactions posted on or after"
-               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+               class="mt-1 block rounded-lg border-gray-300 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
       </div>
+      <span class="pb-2.5 text-sm text-gray-400">&ndash;</span>
       <div>
         <label for="transactions-to" class="block text-xs font-medium text-gray-500">To</label>
         <input id="transactions-to" type="date" data-transactions-filter-target="to"
                data-action="input->transactions-filter#filter" aria-label="Filter transactions posted on or before"
-               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+               class="mt-1 block rounded-lg border-gray-300 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
       </div>
+      <button type="button" data-action="transactions-filter#clear"
+              class="cursor-pointer pb-2.5 text-sm font-medium text-indigo-600 hover:text-indigo-500">
+        Clear filters
+      </button>
     </div>
 
     <table class="min-w-full divide-y divide-gray-200">
