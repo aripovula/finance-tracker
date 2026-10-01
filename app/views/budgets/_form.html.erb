@@ -32,7 +32,7 @@
   </div>
 
   <div class="flex items-center gap-3">
-    <%= form.submit submit_label, class: "cursor-pointer rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500" %>
+    <%= form.button submit_label, type: :submit, class: "cursor-pointer rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500" %>
     <%= link_to "Cancel", budgets_path, class: "text-sm font-medium text-gray-700 hover:underline" %>
   </div>
 <% end %>
