@@ -111,6 +111,7 @@ Budgets page also lists these as concrete suggestions the user can accept with o
 | API docs | `rswag` (OpenAPI generated from request specs) | Live at `/api-docs` |
 | Testing | RSpec (request/model/service/consumer specs against a real Postgres, no DB mocking) + Capybara/Cuprite for E2E | Integration tests hit the real thing, not mocks; E2E drives real Chrome with no npm/Node in the loop |
 | Frontend | Turbo + Stimulus + Tailwind CSS v4, no SPA framework | Hand-rolled inline SVG charts on the dashboard, no charting library |
+| Logging | `lograge` — one structured JSON line per request, with a `request_id` for correlation | Enabled in every environment (no deployment yet to gate it to), see `config/initializers/lograge.rb` |
 
 ### Local dev runs natively, not in Docker
 
