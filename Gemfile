@@ -54,6 +54,9 @@ gem "karafka", "~> 2.5"
 # Redis client, used only for the budget-alert throttle key [https://github.com/redis/redis-rb]
 gem "redis", "~> 6.0"
 
+# No longer a default gem as of Ruby 3.4 - used for the transactions CSV export
+gem "csv"
+
 # One structured JSON log line per request instead of Rails' multi-line default [https://github.com/roidrage/lograge]
 gem "lograge"
 
