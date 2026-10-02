@@ -339,6 +339,50 @@ Puma threads and DB connections a given deployment has than about this app's own
 that's a deployment-sizing question, not something the load test itself needs to answer. Bump
 `LOADTEST_USER_COUNT` if you want to see where a given local setup actually starts failing.
 
+## Ephemeral AWS demo deployment
+
+This app isn't meant to run on AWS 24/7. `cloudformation/demo-stack.yml` stands up a single EC2
+instance running the whole stack natively — Postgres, Redis-compatible Valkey, Kafka, the Rails
+app, and the Karafka consumers — meant to be created on demand and deleted again roughly 30
+minutes later. See `CLAUDE.md` §13 for the full reasoning (short version: RDS/ElastiCache/MSK
+provisioning time alone would eat most of a 30-minute window).
+
+The stack that creates and deletes it on a visitor's behalf is a separate, not-yet-built
+portfolio website. Until that exists, here's how to test the template by hand:
+
+```bash
+# Once, ahead of time: store the Rails master key as a SecureString SSM parameter.
+# The stack only ever gets read access to it by name — never the value itself.
+aws ssm put-parameter \
+  --name /finance-tracker/demo/rails_master_key \
+  --type SecureString \
+  --value "$(cat config/master.key)"
+
+# Create the stack (defaults to the main branch of this repo's public GitHub URL).
+aws cloudformation create-stack \
+  --stack-name finance-tracker-demo \
+  --template-body file://cloudformation/demo-stack.yml \
+  --capabilities CAPABILITY_IAM
+
+# Watch it come up, then grab the URL once CREATE_COMPLETE.
+aws cloudformation wait stack-create-complete --stack-name finance-tracker-demo
+aws cloudformation describe-stacks --stack-name finance-tracker-demo \
+  --query "Stacks[0].Outputs"
+
+# Bootstrap logs, if something looks wrong (via Session Manager, no SSH open):
+aws ssm start-session --target <InstanceId>
+# then on the instance: sudo tail -f /var/log/demo-bootstrap.log
+
+# Tear it down.
+aws cloudformation delete-stack --stack-name finance-tracker-demo
+```
+
+This template hasn't been run against a real AWS account yet — it's been checked for YAML
+validity and for `Fn::Sub`/bash `${...}` collisions (CloudFormation's own substitution and bash's
+variable syntax use the same braces, which is a common source of broken `UserData` scripts), but
+package names and exact boot behavior on a fresh Amazon Linux 2023 instance are only verifiable
+by actually running it. Treat the first real deploy as a test run, not a known-good path.
+
 ## Project structure
 
 ```
