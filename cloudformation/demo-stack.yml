@@ -1,0 +1,296 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  Ephemeral demo deployment for finance-tracker (see CLAUDE.md §13). A
+  single EC2 instance runs Postgres, Redis-compatible Valkey, Kafka, the
+  Rails app, and the Karafka consumers natively - the same "no Docker,
+  everything via asdf" approach local dev already uses (CLAUDE.md §6, §8).
+  No RDS/ElastiCache/MSK/ECS - those take too long to provision for a
+  30-minute on-demand demo window.
+  This stack is meant to be created by an external orchestrator (the
+  portfolio website, not yet built) and deleted again ~30 minutes later.
+  It has no auto-teardown of its own beyond the safety-net instance
+  shutdown below - the 30-minute policy is intentionally owned by that
+  orchestrator, not duplicated here, since it's shared across every
+  trio app's stack.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues: [t3.small, t3.medium, t3.large]
+    Description: >
+      t3.medium is the default rather than t3.small purely for a faster
+      first boot - compiling Ruby 3.4 from source via asdf is CPU-bound and
+      meaningfully faster with more vCPUs. The cost difference between
+      instance sizes over a ~30-minute run is a few cents either way, so
+      it isn't worth optimizing for here the way it would be for a
+      24/7 instance.
+
+  RailsMasterKeyParameterName:
+    Type: AWS::SSM::Parameter::Name
+    Default: /finance-tracker/demo/rails_master_key
+    Description: >
+      Name of a SecureString SSM parameter holding the exact contents of
+      this app's config/master.key, created ahead of time and out of band
+      (e.g. `aws ssm put-parameter --type SecureString --name
+      /finance-tracker/demo/rails_master_key --value "$(cat
+      config/master.key)"`). This template only grants read access to it
+      by name - it never contains the secret itself, and the secret is
+      never committed to this repo.
+
+  RepositoryUrl:
+    Type: String
+    Default: https://github.com/aripovula/finance-tracker.git
+    Description: Public repo to clone - no credentials needed to read it.
+
+  RepositoryRef:
+    Type: String
+    Default: main
+    Description: Branch, tag, or commit to deploy.
+
+  SafetyNetShutdownMinutes:
+    Type: Number
+    Default: 35
+    Description: >
+      Fallback self-shutdown scheduled on the instance itself, in case the
+      external 30-minute teardown (CLAUDE.md §13, owned by the portfolio
+      website) doesn't run for some reason - e.g. its Lambda errors, or the
+      stack gets created directly for testing without that orchestrator in
+      the loop at all. Intentionally a few minutes after the expected
+      30-minute teardown, not the primary mechanism - shutting the
+      instance down isn't the same as deleting the stack, but it stops the
+      meter and is a cheap, simple backstop.
+
+Resources:
+  DemoSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: >
+        finance-tracker demo - HTTP app port only. No SSH: this is a
+        short-lived, public demo box, and not opening 22 at all shrinks
+        its attack surface for however long it's up. Use EC2 Instance
+        Connect or Session Manager (enabled below via
+        AmazonSSMManagedInstanceCore) if shell access is ever needed.
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+          Description: Public access to the Rails app (Puma binds here directly, no nginx in front for this first version)
+
+  DemoInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadDemoMasterKey
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${RailsMasterKeyParameterName}
+
+  DemoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref DemoInstanceRole
+
+  DemoInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      # Always the current Amazon Linux 2023 AMI - no AMI ID to keep updated by hand.
+      ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+      IamInstanceProfile: !Ref DemoInstanceProfile
+      SecurityGroupIds:
+        - !Ref DemoSecurityGroup
+      Tags:
+        - Key: Name
+          Value: finance-tracker-demo
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -ex
+          exec > /var/log/demo-bootstrap.log 2>&1
+
+          # Safety net only - see SafetyNetShutdownMinutes above. The real
+          # teardown is CloudFormation's DeleteStack, triggered externally.
+          shutdown -h +${SafetyNetShutdownMinutes} || true
+
+          dnf update -y
+          dnf install -y git postgresql15-server postgresql15 valkey \
+            gcc gcc-c++ make openssl-devel readline-devel libyaml-devel zlib-devel
+          # AWS CLI v2 ships preinstalled on the AL2023 AMI - not dnf-installed
+          # here, since that package name has changed across AL2023 releases
+          # and a wrong one would abort this whole script under `set -e`.
+
+          # --- Postgres ---------------------------------------------------
+          postgresql-setup --initdb
+          # Default pg_hba.conf uses ident/peer, which blocks the
+          # password-based login Rails' database.yml expects. Scram is
+          # Postgres 15's modern default auth method.
+          PGDATA=/var/lib/pgsql/data
+          sed -i 's/ident/scram-sha-256/g; s/peer/scram-sha-256/g' "$PGDATA/pg_hba.conf"
+          systemctl enable --now postgresql
+
+          DB_PASSWORD=$(openssl rand -hex 16)
+          # SUPERUSER, not least-privilege, is a deliberate simplification:
+          # this role only ever exists for this one ephemeral box's
+          # lifetime, with no other tenants or data to protect it from.
+          sudo -u postgres psql -c "CREATE ROLE finance_tracker WITH LOGIN SUPERUSER PASSWORD '$DB_PASSWORD';"
+
+          # --- Redis-compatible (AL2023 ships Valkey, not redis) ----------
+          systemctl enable --now valkey
+
+          # --- App user + its env file -------------------------------------
+          useradd -m demo
+          RAILS_MASTER_KEY=$(aws ssm get-parameter --name "${RailsMasterKeyParameterName}" --with-decryption --query Parameter.Value --output text --region ${AWS::Region})
+          # Deliberately no DATABASE_URL: this app's database.yml defines
+          # four distinct databases for production (primary/cache/queue/
+          # cable, Rails 8's Solid Queue/Cache/Cable defaults), each with
+          # its own database name, via FINANCE_TRACKER_DATABASE_PASSWORD.
+          # Rails' DATABASE_URL auto-merge is built around a single
+          # database and its interaction with that multi-db setup isn't
+          # something to rely on without testing it directly.
+          cat > /home/demo/app.env <<ENV
+          RAILS_ENV=production
+          PORT=3000
+          RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+          FINANCE_TRACKER_DATABASE_PASSWORD=$DB_PASSWORD
+          REDIS_URL=redis://localhost:6379/0
+          ENV
+          chown demo:demo /home/demo/app.env
+          chmod 600 /home/demo/app.env
+
+          # --- Clone + bootstrap the app, as the demo user -----------------
+          sudo -u demo git clone --branch "${RepositoryRef}" --depth 1 "${RepositoryUrl}" /home/demo/app
+
+          sudo -iu demo bash <<'SETUP'
+          set -ex
+          cd ~/app
+
+          # Modern asdf (0.16+) is a single Go binary, not the older
+          # shell-script framework - no asdf.sh to source, just a binary
+          # plus shims on PATH.
+          mkdir -p "$HOME/bin"
+          curl -fsSL "https://github.com/asdf-vm/asdf/releases/download/v0.20.0/asdf-v0.20.0-linux-amd64.tar.gz" | tar -xz -C "$HOME/bin"
+          export ASDF_DATA_DIR="$HOME/.asdf"
+          export PATH="$HOME/bin:$ASDF_DATA_DIR/shims:$PATH"
+          echo 'export ASDF_DATA_DIR="$HOME/.asdf"' >> ~/.bashrc
+          echo 'export PATH="$HOME/bin:$ASDF_DATA_DIR/shims:$PATH"' >> ~/.bashrc
+
+          asdf plugin add ruby
+          asdf plugin add java
+          asdf plugin add kafka
+          asdf install
+
+          bundle install --jobs 4
+
+          set -a
+          . ~/app.env
+          set +a
+
+          bin/rails db:create db:schema:load db:seed
+          bin/rails assets:precompile
+          SETUP
+
+          # --- Process supervision (systemd, not nohup) ---------------------
+          mkdir -p /home/demo/bin
+
+          cat > /home/demo/bin/env.sh <<'WRAP'
+          #!/bin/bash
+          export HOME=/home/demo
+          export ASDF_DATA_DIR="$HOME/.asdf"
+          export PATH="$HOME/bin:$ASDF_DATA_DIR/shims:$PATH"
+          set -a
+          . "$HOME/app.env"
+          set +a
+          cd "$HOME/app"
+          WRAP
+
+          cat > /home/demo/bin/start-kafka.sh <<'WRAP'
+          #!/bin/bash
+          . /home/demo/bin/env.sh
+          exec bin/kafka
+          WRAP
+
+          cat > /home/demo/bin/start-karafka.sh <<'WRAP'
+          #!/bin/bash
+          . /home/demo/bin/env.sh
+          exec bundle exec karafka server
+          WRAP
+
+          cat > /home/demo/bin/start-rails.sh <<'WRAP'
+          #!/bin/bash
+          . /home/demo/bin/env.sh
+          exec bin/rails server -b 0.0.0.0 -p 3000
+          WRAP
+
+          chmod +x /home/demo/bin/*.sh
+          chown -R demo:demo /home/demo/bin
+
+          cat > /etc/systemd/system/demo-kafka.service <<'UNIT'
+          [Unit]
+          Description=finance-tracker demo - Kafka
+
+          [Service]
+          Type=simple
+          User=demo
+          ExecStart=/home/demo/bin/start-kafka.sh
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+          cat > /etc/systemd/system/demo-karafka.service <<'UNIT'
+          [Unit]
+          Description=finance-tracker demo - Karafka consumers
+          After=demo-kafka.service
+          Wants=demo-kafka.service
+
+          [Service]
+          Type=simple
+          User=demo
+          ExecStart=/home/demo/bin/start-karafka.sh
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+          cat > /etc/systemd/system/demo-rails.service <<'UNIT'
+          [Unit]
+          Description=finance-tracker demo - Rails app
+
+          [Service]
+          Type=simple
+          User=demo
+          ExecStart=/home/demo/bin/start-rails.sh
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+          systemctl daemon-reload
+          systemctl enable --now demo-kafka demo-karafka demo-rails
+
+Outputs:
+  DemoURL:
+    Description: Public URL for the demo (Puma on :3000, no reverse proxy in front)
+    Value: !Sub http://${DemoInstance.PublicDnsName}:3000
+
+  InstanceId:
+    Value: !Ref DemoInstance
