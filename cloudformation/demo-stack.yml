@@ -66,6 +66,12 @@ Resources:
   DemoSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      # Explicit, predictable names on this group, the role, and the
+      # instance profile below (rather than letting CloudFormation
+      # auto-generate random-suffixed ones) so a deploying IAM policy can
+      # scope itself to exactly these resources by ARN, instead of needing
+      # a wildcard across every security group/role/profile in the account.
+      GroupName: finance-tracker-demo-sg
       GroupDescription: >
         finance-tracker demo - HTTP app port only. No SSH: this is a
         short-lived, public demo box, and not opening 22 at all shrinks
@@ -82,6 +88,7 @@ Resources:
   DemoInstanceRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: finance-tracker-demo-instance-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -103,6 +110,7 @@ Resources:
   DemoInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
+      InstanceProfileName: finance-tracker-demo-instance-profile
       Roles:
         - !Ref DemoInstanceRole
 
