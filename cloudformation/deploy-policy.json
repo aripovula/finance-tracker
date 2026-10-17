@@ -159,13 +159,16 @@
       "Sid": "SessionManagerIntoTheDemoInstanceOnly",
       "Effect": "Allow",
       "Action": ["ssm:StartSession", "ssm:TerminateSession", "ssm:ResumeSession"],
-      "Resource": [
-        "arn:aws:ec2:*:<ACCOUNT_ID>:instance/*",
-        "arn:aws:ssm:*:<ACCOUNT_ID>:document/SSM-SessionManagerRunShell"
-      ],
+      "Resource": "arn:aws:ec2:*:<ACCOUNT_ID>:instance/*",
       "Condition": {
         "StringEquals": { "aws:ResourceTag/Name": "finance-tracker-demo" }
       }
+    },
+    {
+      "Sid": "SessionManagerRunShellDocument",
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": "arn:aws:ssm:*:<ACCOUNT_ID>:document/SSM-SessionManagerRunShell"
     },
     {
       "Sid": "SessionManagerReadOnlyDescribe",
