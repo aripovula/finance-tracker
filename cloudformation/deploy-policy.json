@@ -174,13 +174,13 @@
       "Sid": "SessionManagerOpenDataChannel",
       "Effect": "Allow",
       "Action": "ssmmessages:OpenDataChannel",
-      "Resource": "arn:aws:ssm:*:*:session/${aws:userid}-*"
+      "Resource": "arn:aws:ssm:*:*:session/${aws:username}-*"
     },
     {
       "Sid": "SessionManagerEndOwnSession",
       "Effect": "Allow",
       "Action": ["ssm:TerminateSession", "ssm:ResumeSession"],
-      "Resource": "arn:aws:ssm:*:*:session/${aws:userid}-*"
+      "Resource": "arn:aws:ssm:*:*:session/${aws:username}-*"
     },
     {
       "Sid": "SessionManagerReadOnlyDescribe",
