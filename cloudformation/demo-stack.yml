@@ -72,12 +72,17 @@ Resources:
       # scope itself to exactly these resources by ARN, instead of needing
       # a wildcard across every security group/role/profile in the account.
       GroupName: finance-tracker-demo-sg
-      GroupDescription: >
-        finance-tracker demo - HTTP app port only. No SSH: this is a
-        short-lived, public demo box, and not opening 22 at all shrinks
-        its attack surface for however long it's up. Use EC2 Instance
-        Connect or Session Manager (enabled below via
-        AmazonSSMManagedInstanceCore) if shell access is ever needed.
+      # AWS restricts security group descriptions to under 256 characters,
+      # from a limited character set that excludes apostrophes - both
+      # constraints are easy to miss until CloudFormation rejects it. The
+      # `>-` (not plain `>`) strips the trailing newline a folded block
+      # scalar otherwise appends, which EC2 also rejects as an invalid
+      # character even though it's invisible in the YAML source.
+      GroupDescription: >-
+        finance-tracker demo - HTTP app port only. No SSH: short-lived
+        public demo box, so port 22 is not opened, to shrink attack
+        surface. Use EC2 Instance Connect or Session Manager
+        (AmazonSSMManagedInstanceCore) for shell access if needed.
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3000
