@@ -150,18 +150,28 @@ Resources:
 
           # --- Postgres ---------------------------------------------------
           postgresql-setup --initdb
-          # Default pg_hba.conf uses ident/peer, which blocks the
-          # password-based login Rails' database.yml expects. Scram is
-          # Postgres 15's modern default auth method.
           PGDATA=/var/lib/pgsql/data
-          sed -i 's/ident/scram-sha-256/g; s/peer/scram-sha-256/g' "$PGDATA/pg_hba.conf"
           systemctl enable --now postgresql
 
+          # Create the role first, while the default pg_hba.conf (ident/peer)
+          # still applies - that's what lets `sudo -u postgres psql` connect
+          # passwordlessly here, since the OS user "postgres" matches the DB
+          # role "postgres" under peer auth. database.yml has no `host:` set,
+          # so the pg gem connects via this same local Unix socket, not TCP -
+          # only AFTER this role exists do we lock the socket down to
+          # password auth below, or there'd be no password yet to check.
           DB_PASSWORD=$(openssl rand -hex 16)
           # SUPERUSER, not least-privilege, is a deliberate simplification:
           # this role only ever exists for this one ephemeral box's
           # lifetime, with no other tenants or data to protect it from.
           sudo -u postgres psql -c "CREATE ROLE finance_tracker WITH LOGIN SUPERUSER PASSWORD '$DB_PASSWORD';"
+
+          # Now switch local+host auth to password-based: Rails connects as
+          # role "finance_tracker" from OS user "demo", which peer auth
+          # (matching OS username to role name) would never allow. Scram is
+          # Postgres 15's modern default password auth method.
+          sed -i 's/ident/scram-sha-256/g; s/peer/scram-sha-256/g' "$PGDATA/pg_hba.conf"
+          systemctl reload postgresql
 
           # --- Redis-compatible (AL2023 ships Valkey, not redis) ----------
           systemctl enable --now valkey
