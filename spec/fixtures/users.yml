@@ -5,3 +5,9 @@ one:
 two:
   email: bob@example.com
   password_digest: <%= BCrypt::Password.create("password123") %>
+
+<% DemoUserPresets::ALL.each do |preset| %>
+<%= preset[:name].downcase %>:
+  email: <%= preset[:name] %>
+  password_digest: <%= BCrypt::Password.create(preset[:password]) %>
+<% end %>

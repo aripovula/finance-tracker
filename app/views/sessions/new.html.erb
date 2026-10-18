@@ -1,18 +1,34 @@
 <% content_for :title, "Log in" %>
 
-<div class="w-full max-w-sm mx-auto">
+<div class="w-full max-w-sm mx-auto" data-controller="demo-login">
   <h1 class="text-2xl font-semibold text-gray-900 mb-6">Log in</h1>
+
+  <div class="mb-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+    <p class="text-sm font-medium text-gray-700 mb-3">Quick demo login</p>
+    <div class="space-y-2">
+      <% DemoUserPresets::ALL.each_with_index do |preset, index| %>
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <%= radio_button_tag "demo_user_preset", preset[:name], index.zero?,
+                data: { demo_login_target: "radio", password: preset[:password], action: "demo-login#select" },
+                class: "h-4 w-4 text-indigo-600 focus:ring-indigo-500" %>
+          <%= preset[:name] %>
+        </label>
+      <% end %>
+    </div>
+  </div>
 
   <%= form_with url: login_path, method: :post, class: "space-y-4" do |form| %>
     <div>
       <%= form.label :email, "Username", class: "block text-sm font-medium text-gray-700" %>
       <%= form.text_field :email, required: true,
+            data: { demo_login_target: "username" },
             class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
     </div>
 
     <div>
       <%= form.label :password, class: "block text-sm font-medium text-gray-700" %>
       <%= form.password_field :password, required: true,
+            data: { demo_login_target: "password" },
             class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
     </div>
 
