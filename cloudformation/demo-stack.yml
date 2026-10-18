@@ -213,6 +213,14 @@ Resources:
           echo 'export ASDF_DATA_DIR="$HOME/.asdf"' >> ~/.bashrc
           echo 'export PATH="$HOME/bin:$ASDF_DATA_DIR/shims:$PATH"' >> ~/.bashrc
 
+          # This repo pins Ruby via .ruby-version, not .tool-versions (only
+          # java/kafka/k6 are there) - asdf only reads legacy version files
+          # like .ruby-version when a plugin opts in via this setting, which
+          # local dev presumably has globally in ~/.asdfrc already. A fresh
+          # asdf install has no such config, so `asdf install` would
+          # silently skip ruby entirely without this.
+          echo 'legacy_version_file = yes' >> ~/.asdfrc
+
           asdf plugin add ruby
           asdf plugin add java
           asdf plugin add kafka
