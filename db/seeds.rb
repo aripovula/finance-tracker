@@ -247,6 +247,18 @@ DEMO_BUDGETS_THIS_MONTH = [
   { category: "Rent", monthly_limit_cents: 160_000 }
 ].freeze
 
+def seed_demo_transaction!(bank_account:, slug:, index:, posted_at:, template:)
+  Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{slug}-#{index}") do |txn|
+    txn.bank_account = bank_account
+    txn.category = Category.find_by!(name: template[:category])
+    txn.merchant_name = template[:merchant]
+    txn.amount_cents = template[:amount_cents]
+    txn.posted_at = posted_at
+    txn.status = "posted"
+    txn.raw_payload = { "source" => "demo-seed" }
+  end
+end
+
 def seed_demo_user!(name:, password:, institution_name:)
   slug = name.downcase
   this_month = Date.current.beginning_of_month
@@ -263,27 +275,17 @@ def seed_demo_user!(name:, password:, institution_name:)
   end
 
   DEMO_TRANSACTIONS_THIS_MONTH.each_with_index do |template, index|
-    Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{slug}-#{index}") do |txn|
-      txn.bank_account = bank_account
-      txn.category = Category.find_by!(name: template[:category])
-      txn.merchant_name = template[:merchant]
-      txn.amount_cents = template[:amount_cents]
-      txn.posted_at = this_month.change(day: template[:day_of_month])
-      txn.status = "posted"
-      txn.raw_payload = { "source" => "demo-seed" }
-    end
+    seed_demo_transaction!(
+      bank_account: bank_account, slug: slug, index: index,
+      posted_at: this_month.change(day: template[:day_of_month]), template: template
+    )
   end
 
   DEMO_TRANSACTIONS_LAST_MONTH.each_with_index do |template, index|
-    Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{slug}-last-month-#{index}") do |txn|
-      txn.bank_account = bank_account
-      txn.category = Category.find_by!(name: template[:category])
-      txn.merchant_name = template[:merchant]
-      txn.amount_cents = template[:amount_cents]
-      txn.posted_at = last_month.change(day: template[:day_of_month])
-      txn.status = "posted"
-      txn.raw_payload = { "source" => "demo-seed" }
-    end
+    seed_demo_transaction!(
+      bank_account: bank_account, slug: slug, index: "last-month-#{index}",
+      posted_at: last_month.change(day: template[:day_of_month]), template: template
+    )
   end
 
   budgets = DEMO_BUDGETS_THIS_MONTH.map do |template|
