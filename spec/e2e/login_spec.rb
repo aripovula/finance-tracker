@@ -4,9 +4,9 @@ RSpec.describe "Login", type: :feature do
   it "lets a user log in with valid credentials and reach the dashboard" do
     visit login_path
 
-    fill_in "Email", with: users(:one).email
+    fill_in "Username", with: users(:one).email
     fill_in "Password", with: "password123"
-    click_button "Log in"
+    click_button "Sign in"
 
     expect(page).to have_current_path(root_path)
     expect(page).to have_content("Dashboard")
@@ -16,11 +16,11 @@ RSpec.describe "Login", type: :feature do
   it "shows an error and stays on the login page for invalid credentials" do
     visit login_path
 
-    fill_in "Email", with: users(:one).email
+    fill_in "Username", with: users(:one).email
     fill_in "Password", with: "wrong-password"
-    click_button "Log in"
+    click_button "Sign in"
 
     expect(page).to have_current_path(login_path)
-    expect(page).to have_content("Invalid email or password")
+    expect(page).to have_content("Invalid username or password")
   end
 end
