@@ -18,6 +18,9 @@ Rails.application.routes.draw do
   post "login", to: "sessions#create"
   delete "logout", to: "sessions#destroy"
 
+  get "signup", to: "registrations#new"
+  post "signup", to: "registrations#create"
+
   resources :categories, only: [ :index ]
   resources :budgets, only: [ :index, :new, :create, :edit, :update, :destroy ]
   resources :bank_accounts, only: [ :index, :create ] do
