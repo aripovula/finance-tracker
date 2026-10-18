@@ -3,6 +3,16 @@
 <div class="w-full max-w-sm mx-auto">
   <h1 class="text-2xl font-semibold text-gray-900 mb-6">Sign up</h1>
 
+  <% if @user.errors.any? %>
+    <div class="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+      <ul class="list-disc list-inside">
+        <% @user.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
   <%= form_with model: @user, url: signup_path, class: "space-y-4" do |form| %>
     <div>
       <%= form.label :email, class: "block text-sm font-medium text-gray-700" %>
