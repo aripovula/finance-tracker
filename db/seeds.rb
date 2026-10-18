@@ -210,3 +210,96 @@ PLAID_PERSONAL_FINANCE_CATEGORIES.each do |primary_code, primary|
     end
   end
 end
+
+# --- Demo users ----------------------------------------------------------
+# Three preset accounts a visitor can log into with one click from the
+# login page (DemoUserPresets, app/views/sessions/new.html.erb) instead of
+# registering or guessing credentials - this is a public demo with no real
+# user data to protect. Dates are expressed as offsets from the start of
+# the current month, not from "now", so re-seeding stays correct no matter
+# which day of the month it's run on.
+DEMO_TRANSACTIONS_THIS_MONTH = [
+  { category: "Groceries", merchant: "Whole Foods Market", amount_cents: 8734, day_of_month: 3 },
+  { category: "Groceries", merchant: "Trader Joe's", amount_cents: 5210, day_of_month: 16 },
+  { category: "Restaurants", merchant: "Chipotle", amount_cents: 2599, day_of_month: 2 },
+  { category: "Restaurants", merchant: "Olive Garden", amount_cents: 5890, day_of_month: 11 },
+  { category: "Restaurants", merchant: "Shake Shack", amount_cents: 3120, day_of_month: 22 },
+  { category: "Coffee", merchant: "Starbucks", amount_cents: 575, day_of_month: 4 },
+  { category: "Gas", merchant: "Shell", amount_cents: 4820, day_of_month: 7 },
+  { category: "Rent", merchant: "Parkview Apartments", amount_cents: 152000, day_of_month: 1 },
+  { category: "Internet And Cable", merchant: "Comcast Xfinity", amount_cents: 7999, day_of_month: 5 },
+  { category: "TV And Movies", merchant: "Netflix", amount_cents: 1549, day_of_month: 9 }
+].freeze
+
+DEMO_TRANSACTIONS_LAST_MONTH = [
+  { category: "Groceries", merchant: "Safeway", amount_cents: 6120, day_of_month: 12 },
+  { category: "Restaurants", merchant: "Shake Shack", amount_cents: 2780, day_of_month: 20 },
+  { category: "Clothing And Accessories", merchant: "Gap", amount_cents: 6450, day_of_month: 14 },
+  { category: "Gyms And Fitness Centers", merchant: "Planet Fitness", amount_cents: 3999, day_of_month: 3 }
+].freeze
+
+# Restaurants is deliberately over its limit (seeded spend is $116.09 of a
+# $100 budget) so the budget-alert banner has something to show out of the
+# box; Rent is close to its limit without going over, for visual contrast.
+DEMO_BUDGETS_THIS_MONTH = [
+  { category: "Groceries", monthly_limit_cents: 35_000 },
+  { category: "Restaurants", monthly_limit_cents: 10_000 },
+  { category: "Rent", monthly_limit_cents: 160_000 }
+].freeze
+
+def seed_demo_user!(name:, password:, institution_name:)
+  slug = name.downcase
+  this_month = Date.current.beginning_of_month
+  last_month = this_month - 1.month
+
+  user = User.find_or_create_by!(email: name) { |u| u.password = password }
+
+  bank_account = BankAccount.find_or_create_by!(plaid_account_id: "account-demo-#{slug}") do |ba|
+    ba.user = user
+    ba.plaid_item_id = "item-demo-#{slug}"
+    ba.plaid_access_token = "access-demo-#{slug}"
+    ba.institution_name = institution_name
+    ba.mask = rand(1000..9999).to_s
+  end
+
+  DEMO_TRANSACTIONS_THIS_MONTH.each_with_index do |template, index|
+    Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{slug}-#{index}") do |txn|
+      txn.bank_account = bank_account
+      txn.category = Category.find_by!(name: template[:category])
+      txn.merchant_name = template[:merchant]
+      txn.amount_cents = template[:amount_cents]
+      txn.posted_at = this_month.change(day: template[:day_of_month])
+      txn.status = "posted"
+      txn.raw_payload = { "source" => "demo-seed" }
+    end
+  end
+
+  DEMO_TRANSACTIONS_LAST_MONTH.each_with_index do |template, index|
+    Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{slug}-last-month-#{index}") do |txn|
+      txn.bank_account = bank_account
+      txn.category = Category.find_by!(name: template[:category])
+      txn.merchant_name = template[:merchant]
+      txn.amount_cents = template[:amount_cents]
+      txn.posted_at = last_month.change(day: template[:day_of_month])
+      txn.status = "posted"
+      txn.raw_payload = { "source" => "demo-seed" }
+    end
+  end
+
+  budgets = DEMO_BUDGETS_THIS_MONTH.map do |template|
+    Budget.find_or_create_by!(
+      user: user, category: Category.find_by!(name: template[:category]), effective_month: this_month
+    ) { |budget| budget.monthly_limit_cents = template[:monthly_limit_cents] }
+  end
+
+  restaurants_budget = budgets.find { |budget| budget.category.name == "Restaurants" }
+  restaurants_budget.budget_alerts.active.first_or_create!(spent_cents: 11_609)
+end
+
+[
+  { preset: DemoUserPresets::ALL[0], institution_name: "Bank of America" },
+  { preset: DemoUserPresets::ALL[1], institution_name: "Chase" },
+  { preset: DemoUserPresets::ALL[2], institution_name: "Wells Fargo" }
+].each do |entry|
+  seed_demo_user!(name: entry[:preset][:name], password: entry[:preset][:password], institution_name: entry[:institution_name])
+end
