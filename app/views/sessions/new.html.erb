@@ -35,4 +35,8 @@
     <%= form.button "Sign in", type: :submit,
           class: "w-full rounded-md bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-500 cursor-pointer" %>
   <% end %>
+
+  <p class="mt-4 text-center text-sm text-gray-500">
+    New here? <%= link_to "Sign up", signup_path, class: "text-indigo-600 hover:text-indigo-500 font-medium" %>
+  </p>
 </div>
