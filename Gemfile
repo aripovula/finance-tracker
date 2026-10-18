@@ -43,7 +43,7 @@ gem "thruster", require: false
 gem "image_processing", "~> 2.1"
 
 # Connect bank accounts via Plaid Link and fetch transactions [https://github.com/plaid/plaid-ruby]
-gem "plaid", "~> 51.0"
+gem "plaid", "~> 52.0"
 
 # Sign and verify JWT access tokens [https://github.com/jwt/ruby-jwt]
 gem "jwt", "~> 3.3"
