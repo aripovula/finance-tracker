@@ -16,9 +16,9 @@ RSpec.describe User, type: :model do
     expect(user).not_to be_valid
   end
 
-  it "is invalid with malformed email" do
+  it "is valid with a plain username (not email-shaped)" do
     user = User.new(email: "not-an-email", password: "password123")
-    expect(user).not_to be_valid
+    expect(user).to be_valid
   end
 
   it "authenticates with correct password" do

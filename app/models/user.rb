@@ -6,5 +6,10 @@ class User < ApplicationRecord
   has_many :monthly_summaries
   has_many :refresh_tokens
 
-  validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  # Despite the column name, this doubles as a plain username: sign-up
+  # (app/controllers/registrations_controller.rb) deliberately has no email
+  # field, so this can't be format-validated as an email address. Kept named
+  # "email" rather than renamed, since the login/API params and dozens of
+  # existing specs already key off it.
+  validates :email, presence: true, uniqueness: true
 end
