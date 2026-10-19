@@ -362,7 +362,7 @@ aws ssm put-parameter \
 aws cloudformation create-stack \
   --stack-name finance-tracker-demo \
   --template-body file://cloudformation/demo-stack.yml \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_NAMED_IAM
 
 # Watch it come up, then grab the URL once CREATE_COMPLETE.
 aws cloudformation wait stack-create-complete --stack-name finance-tracker-demo
