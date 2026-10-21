@@ -121,3 +121,26 @@ Resources:
 
           def handler(event, context):
               cfn.delete_stack(StackName=STACK_NAME)
+
+  # Lets EventBridge Scheduler invoke the teardown Lambda on our behalf -
+  # scoped to exactly that one function, trusted only by the scheduler
+  # service itself.
+  SchedulerInvocationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: finance-tracker-demo-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeTeardownOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt TeardownFunction.Arn
