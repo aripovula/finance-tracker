@@ -34,3 +34,31 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub finance-tracker-demo-template-${AWS::AccountId}
+
+  # Delete-only subset of deploy-policy.json's already-proven permission
+  # set (see CLAUDE.md §13) - everything that policy grants for human
+  # debugging (Session Manager, GetTemplate, DescribeStackEvents/Resources)
+  # is left out, since this Lambda only ever calls DeleteStack.
+  TeardownRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: finance-tracker-demo-teardown-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DeleteDemoStackOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
