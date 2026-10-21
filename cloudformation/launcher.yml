@@ -257,3 +257,104 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: scheduler.amazonaws.com
+
+  LauncherFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: finance-tracker-demo-launcher
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LauncherRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          STACK_NAME: !Ref DemoStackName
+          TEMPLATE_URL: !Sub https://${DemoTemplateBucket}.s3.${AWS::Region}.amazonaws.com/demo-stack.yml
+          SCHEDULE_NAME: finance-tracker-demo-teardown
+          SCHEDULE_GROUP: default
+          TEARDOWN_FUNCTION_ARN: !GetAtt TeardownFunction.Arn
+          SCHEDULER_ROLE_ARN: !GetAtt SchedulerInvocationRole.Arn
+          EXTEND_MINUTES: !Ref ExtendMinutes
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import time
+
+          import boto3
+          import botocore
+
+          cfn = boto3.client("cloudformation")
+          scheduler = boto3.client("scheduler")
+
+          STACK_NAME = os.environ["STACK_NAME"]
+          TEMPLATE_URL = os.environ["TEMPLATE_URL"]
+          SCHEDULE_NAME = os.environ["SCHEDULE_NAME"]
+          SCHEDULE_GROUP = os.environ["SCHEDULE_GROUP"]
+          TEARDOWN_FUNCTION_ARN = os.environ["TEARDOWN_FUNCTION_ARN"]
+          SCHEDULER_ROLE_ARN = os.environ["SCHEDULER_ROLE_ARN"]
+          EXTEND_MINUTES = int(os.environ["EXTEND_MINUTES"])
+
+
+          def handler(event, context):
+              status, url = describe_stack()
+
+              if status is None:
+                  cfn.create_stack(
+                      StackName=STACK_NAME,
+                      TemplateURL=TEMPLATE_URL,
+                      Capabilities=["CAPABILITY_NAMED_IAM"],
+                  )
+                  return respond("starting")
+
+              if status == "ROLLBACK_COMPLETE":
+                  cfn.delete_stack(StackName=STACK_NAME)
+                  return respond("restarting")
+
+              if status == "CREATE_COMPLETE":
+                  extend_teardown()
+                  return respond("ready", url)
+
+              if status == "CREATE_IN_PROGRESS":
+                  return respond("starting")
+
+              if status == "DELETE_IN_PROGRESS":
+                  return respond("restarting")
+
+              return respond(status.lower())
+
+
+          def describe_stack():
+              try:
+                  stacks = cfn.describe_stacks(StackName=STACK_NAME)["Stacks"]
+              except botocore.exceptions.ClientError as error:
+                  if "does not exist" in str(error):
+                      return None, None
+                  raise
+              stack = stacks[0]
+              outputs = {o["OutputKey"]: o["OutputValue"] for o in stack.get("Outputs", [])}
+              return stack["StackStatus"], outputs.get("DemoURL")
+
+
+          def extend_teardown():
+              run_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + EXTEND_MINUTES * 60))
+              kwargs = {
+                  "Name": SCHEDULE_NAME,
+                  "GroupName": SCHEDULE_GROUP,
+                  "ScheduleExpression": f"at({run_at})",
+                  "FlexibleTimeWindow": {"Mode": "OFF"},
+                  "ActionAfterCompletion": "DELETE",
+                  "Target": {"Arn": TEARDOWN_FUNCTION_ARN, "RoleArn": SCHEDULER_ROLE_ARN},
+              }
+              try:
+                  scheduler.update_schedule(**kwargs)
+              except scheduler.exceptions.ResourceNotFoundException:
+                  scheduler.create_schedule(**kwargs)
+
+
+          def respond(status, url=None):
+              return {
+                  "statusCode": 200,
+                  "headers": {"Content-Type": "application/json"},
+                  "body": json.dumps({"status": status, "url": url}),
+              }
