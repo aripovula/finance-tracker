@@ -97,3 +97,27 @@ Resources:
                   - iam:RemoveRoleFromInstanceProfile
                   - iam:DeleteInstanceProfile
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/finance-tracker-demo-instance-profile
+
+  TeardownFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: finance-tracker-demo-teardown
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt TeardownRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          STACK_NAME: !Ref DemoStackName
+      Code:
+        ZipFile: |
+          import os
+
+          import boto3
+
+          cfn = boto3.client("cloudformation")
+          STACK_NAME = os.environ["STACK_NAME"]
+
+
+          def handler(event, context):
+              cfn.delete_stack(StackName=STACK_NAME)
