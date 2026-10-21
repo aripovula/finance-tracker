@@ -62,3 +62,21 @@ Resources:
                   - cloudformation:DeleteStack
                   - cloudformation:DescribeStacks
                 Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
+              - Effect: Allow
+                Action: ec2:DescribeInstances
+                Resource: "*"
+              - Effect: Allow
+                Action: ec2:TerminateInstances
+                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:instance/*
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Name: finance-tracker-demo
+              - Effect: Allow
+                Action: ec2:DescribeSecurityGroups
+                Resource: "*"
+              - Effect: Allow
+                Action: ec2:DeleteSecurityGroup
+                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:security-group/*
+                Condition:
+                  StringLike:
+                    "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
