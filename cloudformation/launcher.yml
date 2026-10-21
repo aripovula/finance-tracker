@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  One-time infrastructure for the finance-tracker demo launcher (CLAUDE.md
+  §13, "The orchestrator"). Unlike demo-stack.yml, this stack is deployed
+  once by hand and left running - it's the thing that creates/extends/tears
+  down demo-stack.yml's single shared instance, not something torn down
+  itself between visits.
+
+Parameters:
+  PortfolioOrigin:
+    Type: String
+    Description: >
+      Exact origin (scheme + host[:port]) of the portfolio website - the
+      only origin the launcher's Function URL allows via CORS, e.g.
+      http://your-site.s3-website-us-east-1.amazonaws.com
+
+  DemoStackName:
+    Type: String
+    Default: finance-tracker-demo
+
+  ExtendMinutes:
+    Type: Number
+    Default: 30
+    Description: How far forward each visit pushes the teardown schedule.
+
+Resources:
+  # Holds demo-stack.yml so CreateStack can reference it via TemplateURL
+  # (the launcher Lambda doesn't embed a copy of that template - it would
+  # drift out of sync the next time demo-stack.yml changes). Re-upload
+  # whenever that file changes:
+  #   aws s3 cp cloudformation/demo-stack.yml s3://<this bucket's name>/demo-stack.yml
+  DemoTemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub finance-tracker-demo-template-${AWS::AccountId}
