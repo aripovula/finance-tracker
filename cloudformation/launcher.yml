@@ -144,3 +144,33 @@ Resources:
               - Effect: Allow
                 Action: lambda:InvokeFunction
                 Resource: !GetAtt TeardownFunction.Arn
+
+  # Create-only subset of the same deploy-policy.json permission set (see
+  # TeardownRole above), plus what only the launcher needs: reading the
+  # template out of S3, and managing the one teardown schedule.
+  LauncherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: finance-tracker-demo-launcher-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CreateAndDescribeDemoStack
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub ${DemoTemplateBucket.Arn}/demo-stack.yml
