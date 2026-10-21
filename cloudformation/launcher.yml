@@ -358,3 +358,35 @@ Resources:
                   "headers": {"Content-Type": "application/json"},
                   "body": json.dumps({"status": status, "url": url}),
               }
+
+  # Required whenever a Function URL's AuthType is NONE - without this,
+  # public callers get an AccessDenied even though AuthType says "no auth".
+  LauncherFunctionUrlPublicAccess:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LauncherFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  LauncherFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt LauncherFunction.Arn
+      AuthType: NONE
+      Cors:
+        AllowOrigins: [!Ref PortfolioOrigin]
+        AllowMethods: [GET]
+        MaxAge: 300
+
+Outputs:
+  LauncherUrl:
+    Description: >
+      Public endpoint the portfolio site calls on page load, and polls
+      every few seconds afterward until it gets back a "ready" status with
+      a url.
+    Value: !GetAtt LauncherFunctionUrl.FunctionUrl
+
+  DemoTemplateBucketName:
+    Description: Re-upload demo-stack.yml here whenever it changes.
+    Value: !Ref DemoTemplateBucket
