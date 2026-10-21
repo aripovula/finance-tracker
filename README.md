@@ -347,8 +347,9 @@ app, and the Karafka consumers — meant to be created on demand and deleted aga
 minutes later. See `CLAUDE.md` §13 for the full reasoning (short version: RDS/ElastiCache/MSK
 provisioning time alone would eat most of a 30-minute window).
 
-The stack that creates and deletes it on a visitor's behalf is a separate, not-yet-built
-portfolio website. Until that exists, here's how to test the template by hand:
+The thing that creates and deletes it on a visitor's behalf is `cloudformation/launcher.yml` —
+see the "Demo launcher" section below. Until the portfolio website itself exists to call it,
+here's how to test the template by hand:
 
 ```bash
 # Once, ahead of time: store the Rails master key as a SecureString SSM parameter.
@@ -382,6 +383,57 @@ validity and for `Fn::Sub`/bash `${...}` collisions (CloudFormation's own substi
 variable syntax use the same braces, which is a common source of broken `UserData` scripts), but
 package names and exact boot behavior on a fresh Amazon Linux 2023 instance are only verifiable
 by actually running it. Treat the first real deploy as a test run, not a known-good path.
+
+## Demo launcher (keyless, automatic provisioning)
+
+`cloudformation/launcher.yml` is what the portfolio website actually calls — see `CLAUDE.md`
+§13 ("The orchestrator") for the full design. Unlike `demo-stack.yml`, this stack is deployed
+once by hand and left running indefinitely; it's the thing that creates/extends/deletes the
+single shared `finance-tracker-demo` instance, not something recreated per visitor.
+
+In short: there's only ever at most one demo instance. Opening the portfolio page calls a public
+Lambda Function URL, which creates the instance if it doesn't exist, or — if it's already
+running — pushes its scheduled teardown forward another 30 minutes. If nobody visits for 30
+minutes, that teardown fires and deletes the stack.
+
+```bash
+# One-time setup, same SSM parameter demo-stack.yml itself needs:
+aws ssm put-parameter \
+  --name /finance-tracker/demo/rails_master_key \
+  --type SecureString \
+  --value "$(cat config/master.key)"
+
+# Deploy the launcher itself (not the demo instance — this stack stays up).
+aws cloudformation create-stack \
+  --stack-name finance-tracker-demo-launcher \
+  --template-body file://cloudformation/launcher.yml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters ParameterKey=PortfolioOrigin,ParameterValue="http://your-site.s3-website-us-east-1.amazonaws.com"
+
+aws cloudformation wait stack-create-complete --stack-name finance-tracker-demo-launcher
+
+# Upload demo-stack.yml into the bucket the launcher reads it from — re-run this
+# step whenever demo-stack.yml changes, same as redeploying any other artifact.
+BUCKET=$(aws cloudformation describe-stacks --stack-name finance-tracker-demo-launcher \
+  --query "Stacks[0].Outputs[?OutputKey=='DemoTemplateBucketName'].OutputValue" --output text)
+aws s3 cp cloudformation/demo-stack.yml "s3://${BUCKET}/demo-stack.yml"
+
+# The public URL the portfolio page calls:
+aws cloudformation describe-stacks --stack-name finance-tracker-demo-launcher \
+  --query "Stacks[0].Outputs[?OutputKey=='LauncherUrl'].OutputValue" --output text
+```
+
+The portfolio page's JS is just: call the launcher URL on page load, and if the response is
+`{"status": "ready", "url": "..."}`, show/redirect to that URL; otherwise poll again every few
+seconds. No API key, no CORS issue (the Lambda Function URL's CORS config only allows the exact
+`PortfolioOrigin` you deployed with).
+
+Like `demo-stack.yml`, this hasn't been run against a real AWS account yet either — checked for
+YAML validity and the embedded Python's syntax, not for actual IAM-permission correctness. The
+`LauncherRole`/`TeardownRole` policies are a deliberate subset of `deploy-policy.json`'s
+already-iterated-on permission set (see `CLAUDE.md` §13), but the first real `CreateStack` call
+through this path may still surface a missing permission the same way the human deploy path did
+— treat it the same as `demo-stack.yml`: a test run, not a known-good path yet.
 
 ## Project structure
 
