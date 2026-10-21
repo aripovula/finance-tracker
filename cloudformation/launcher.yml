@@ -188,3 +188,33 @@ Resources:
                   - !Sub arn:aws:ec2:*:${AWS::AccountId}:security-group/*
                   - !Sub arn:aws:ec2:*:${AWS::AccountId}:subnet/*
                   - arn:aws:ec2:*::image/*
+              - Effect: Allow
+                Action: ec2:CreateTags
+                Resource:
+                  - !Sub arn:aws:ec2:*:${AWS::AccountId}:instance/*
+                  - !Sub arn:aws:ec2:*:${AWS::AccountId}:volume/*
+                  - !Sub arn:aws:ec2:*:${AWS::AccountId}:network-interface/*
+                Condition:
+                  StringEquals:
+                    ec2:CreateAction: RunInstances
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeAvailabilityZones
+                  - ec2:DescribeImages
+                  - ec2:DescribeTags
+                Resource: "*"
+              - Effect: Allow
+                Action: ec2:CreateSecurityGroup
+                Resource:
+                  - !Sub arn:aws:ec2:*:${AWS::AccountId}:security-group/*
+                  - !Sub arn:aws:ec2:*:${AWS::AccountId}:vpc/*
+              - Effect: Allow
+                Action: ec2:AuthorizeSecurityGroupIngress
+                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:security-group/*
+                Condition:
+                  StringLike:
+                    "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
