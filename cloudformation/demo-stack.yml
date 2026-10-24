@@ -256,8 +256,19 @@ Resources:
 
 Outputs:
   DemoURL:
-    Description: Public URL for the demo (Thruster, inside the prebuilt container, on :80)
+    Description: >
+      Direct URL for the demo (Thruster, inside the prebuilt container, on
+      :80), bypassing CloudFront - for debugging. Visitors get the
+      launcher's own stable CloudFront URL instead (CLAUDE.md §13), which
+      stays the same across every demo cycle even though this one doesn't.
     Value: !Sub http://${DemoInstance.PublicDnsName}
+
+  InstancePublicDnsName:
+    Description: >
+      Just the hostname (no scheme) - what launcher.yml's LauncherFunction
+      reads to keep its CloudFront distribution's origin pointed at
+      whichever instance is actually running.
+    Value: !GetAtt DemoInstance.PublicDnsName
 
   InstanceId:
     Value: !Ref DemoInstance
