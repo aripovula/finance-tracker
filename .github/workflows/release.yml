@@ -1,0 +1,44 @@
+name: Publish demo image
+
+# Builds the existing production Dockerfile and pushes it to GHCR on every
+# push to main, so cloudformation/demo-stack.yml's EC2 instance can `docker
+# pull` a ready-to-run image instead of cloning the repo and compiling Ruby
+# plus bundling gems at boot (CLAUDE.md §13). Mirrors EventTicketing's own
+# cloud-init step, which downloads a prebuilt GitHub release tarball rather
+# than building from source on the VM.
+#
+# One-time manual step after this first runs: GHCR packages default to
+# private even on a public repo. Go to the package's settings on GitHub and
+# set visibility to Public, so the EC2 instance can `docker pull` it without
+# any registry credentials - keeping the whole demo path keyless.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
