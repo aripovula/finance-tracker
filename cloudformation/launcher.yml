@@ -35,6 +35,43 @@ Resources:
     Properties:
       BucketName: !Sub finance-tracker-demo-template-${AWS::AccountId}
 
+  # Created once here, attached (never created/deleted) by demo-stack.yml
+  # on every cycle - the AWS equivalent of EventTicketing's pre-made Azure
+  # managed identity, which its VM template only attaches. A demo cycle
+  # never creates or deletes an IAM identity.
+  DemoInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: finance-tracker-demo-instance-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadDemoMasterKey
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                # Hardcoded, matching demo-stack.yml's own default for this
+                # parameter name - this role has no visibility into whatever
+                # RailsMasterKeyParameterName value a given demo-stack.yml
+                # create-stack call actually used.
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/finance-tracker/demo/rails_master_key
+
+  DemoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: finance-tracker-demo-instance-profile
+      Roles:
+        - !Ref DemoInstanceRole
+
   # Delete-only subset of deploy-policy.json's already-proven permission
   # set (see CLAUDE.md §13) - everything that policy grants for human
   # debugging (Session Manager, GetTemplate, DescribeStackEvents/Resources)
