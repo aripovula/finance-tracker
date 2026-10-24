@@ -2,10 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 
 Description: >
   Ephemeral demo deployment for finance-tracker (see CLAUDE.md §13). A
-  single EC2 instance runs Postgres, Redis-compatible Valkey, Kafka, the
-  Rails app, and the Karafka consumers natively - the same "no Docker,
-  everything via asdf" approach local dev already uses (CLAUDE.md §6, §8).
-  No RDS/ElastiCache/MSK/ECS - those take too long to provision for a
+  single EC2 instance runs Postgres, Redis-compatible Valkey, and Kafka
+  natively - the same "no Docker, everything via asdf" approach local dev
+  uses for infra (CLAUDE.md §6, §8) - while the Rails app and Karafka
+  consumers run as containers pulled from a prebuilt image (DemoImage
+  below), to avoid compiling Ruby and bundling gems on every boot. No
+  RDS/ElastiCache/MSK/ECS - those take too long to provision for a
   30-minute on-demand demo window.
   This stack is meant to be created by an external orchestrator (the
   portfolio website, not yet built) and deleted again ~30 minutes later.
@@ -39,15 +41,15 @@ Parameters:
       by name - it never contains the secret itself, and the secret is
       never committed to this repo.
 
-  RepositoryUrl:
+  DemoImage:
     Type: String
-    Default: https://github.com/aripovula/finance-tracker.git
-    Description: Public repo to clone - no credentials needed to read it.
-
-  RepositoryRef:
-    Type: String
-    Default: main
-    Description: Branch, tag, or commit to deploy.
+    Default: ghcr.io/aripovula/finance-tracker:latest
+    Description: >
+      Prebuilt image, built and pushed by .github/workflows/release.yml on
+      every push to main - the instance pulls and runs this instead of
+      cloning the repo and compiling Ruby/bundling gems at boot, the same
+      way EventTicketing's cloud-init downloads a prebuilt release tarball
+      instead of building from source.
 
   DemoInstanceProfileName:
     Type: String
@@ -94,10 +96,10 @@ Resources:
         (AmazonSSMManagedInstanceCore) for shell access if needed.
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 3000
-          ToPort: 3000
+          FromPort: 80
+          ToPort: 80
           CidrIp: 0.0.0.0/0
-          Description: Public access to the Rails app (Puma binds here directly, no nginx in front for this first version)
+          Description: Public access to the Rails app (Thruster, inside the prebuilt container, listens on 80 and proxies to Puma internally)
 
   DemoInstance:
     Type: AWS::EC2::Instance
@@ -122,11 +124,11 @@ Resources:
           shutdown -h +${SafetyNetShutdownMinutes} || true
 
           dnf update -y
-          dnf install -y git postgresql15-server postgresql15 valkey \
-            gcc gcc-c++ make openssl-devel readline-devel libyaml-devel zlib-devel
+          dnf install -y docker postgresql15-server postgresql15 valkey
           # AWS CLI v2 ships preinstalled on the AL2023 AMI - not dnf-installed
           # here, since that package name has changed across AL2023 releases
           # and a wrong one would abort this whole script under `set -e`.
+          systemctl enable --now docker
 
           # --- Postgres ---------------------------------------------------
           postgresql-setup --initdb
@@ -156,7 +158,7 @@ Resources:
           # --- Redis-compatible (AL2023 ships Valkey, not redis) ----------
           systemctl enable --now valkey
 
-          # --- App user + its env file -------------------------------------
+          # --- App env file -------------------------------------------------
           useradd -m demo
           RAILS_MASTER_KEY=$(aws ssm get-parameter --name "${RailsMasterKeyParameterName}" --with-decryption --query Parameter.Value --output text --region ${AWS::Region})
           # Deliberately no DATABASE_URL: this app's database.yml defines
@@ -166,22 +168,26 @@ Resources:
           # Rails' DATABASE_URL auto-merge is built around a single
           # database and its interaction with that multi-db setup isn't
           # something to rely on without testing it directly.
-          cat > /home/demo/app.env <<ENV
+          cat > /etc/finance-tracker.env <<ENV
           RAILS_ENV=production
-          PORT=3000
           RAILS_MASTER_KEY=$RAILS_MASTER_KEY
           FINANCE_TRACKER_DATABASE_PASSWORD=$DB_PASSWORD
           REDIS_URL=redis://localhost:6379/0
           ENV
-          chown demo:demo /home/demo/app.env
-          chmod 600 /home/demo/app.env
+          chmod 600 /etc/finance-tracker.env
 
-          # --- Clone + bootstrap the app, as the demo user -----------------
-          sudo -u demo git clone --branch "${RepositoryRef}" --depth 1 "${RepositoryUrl}" /home/demo/app
+          # --- Kafka's own runtime (broker infra, not app code - stays
+          # native on the host the same way Postgres/Valkey do, outside the
+          # prebuilt image). Only the two files bin/kafka actually needs are
+          # fetched directly - no full checkout anymore. ---------------------
+          mkdir -p /home/demo/kafka-runtime/bin /home/demo/kafka-runtime/config/kafka /home/demo/kafka-runtime/tmp/kafka-logs
+          curl -fsSL "https://raw.githubusercontent.com/aripovula/finance-tracker/main/bin/kafka" -o /home/demo/kafka-runtime/bin/kafka
+          curl -fsSL "https://raw.githubusercontent.com/aripovula/finance-tracker/main/config/kafka/server.properties" -o /home/demo/kafka-runtime/config/kafka/server.properties
+          chmod +x /home/demo/kafka-runtime/bin/kafka
+          chown -R demo:demo /home/demo/kafka-runtime
 
           sudo -iu demo bash <<'SETUP'
           set -ex
-          cd ~/app
 
           # Modern asdf (0.16+) is a single Go binary, not the older
           # shell-script framework - no asdf.sh to source, just a binary
@@ -193,63 +199,31 @@ Resources:
           echo 'export ASDF_DATA_DIR="$HOME/.asdf"' >> ~/.bashrc
           echo 'export PATH="$HOME/bin:$ASDF_DATA_DIR/shims:$PATH"' >> ~/.bashrc
 
-          # This repo pins Ruby via .ruby-version, not .tool-versions (only
-          # java/kafka/k6 are there) - asdf only reads legacy version files
-          # like .ruby-version when a plugin opts in via this setting, which
-          # local dev presumably has globally in ~/.asdfrc already. A fresh
-          # asdf install has no such config, so `asdf install` would
-          # silently skip ruby entirely without this.
-          echo 'legacy_version_file = yes' >> ~/.asdfrc
-
-          asdf plugin add ruby
+          # Only Kafka (and the Java it runs on) installs via asdf now -
+          # Ruby no longer needs to exist on this host at all, since the app
+          # runs inside DemoImage instead. No repo checkout to read pinned
+          # versions from anymore, so these mirror this repo's own
+          # .tool-versions directly and pin globally.
           asdf plugin add java
           asdf plugin add kafka
-          asdf install
-
-          bundle install --jobs 4
-
-          set -a
-          . ~/app.env
-          set +a
-
-          bin/rails db:create db:schema:load db:seed
-          bin/rails assets:precompile
+          asdf install java temurin-21.0.12+8.0.LTS
+          asdf install kafka apache-4.1.2
+          asdf global java temurin-21.0.12+8.0.LTS
+          asdf global kafka apache-4.1.2
           SETUP
 
-          # --- Process supervision (systemd, not nohup) ---------------------
-          mkdir -p /home/demo/bin
-
-          cat > /home/demo/bin/env.sh <<'WRAP'
+          # --- Kafka process supervision (systemd, not nohup) - the only
+          # thing left that needs it, now that Rails/Karafka run as
+          # Docker-supervised containers below. ------------------------------
+          cat > /home/demo/bin/start-kafka.sh <<'WRAP'
           #!/bin/bash
           export HOME=/home/demo
           export ASDF_DATA_DIR="$HOME/.asdf"
           export PATH="$HOME/bin:$ASDF_DATA_DIR/shims:$PATH"
-          set -a
-          . "$HOME/app.env"
-          set +a
-          cd "$HOME/app"
+          exec /home/demo/kafka-runtime/bin/kafka
           WRAP
-
-          cat > /home/demo/bin/start-kafka.sh <<'WRAP'
-          #!/bin/bash
-          . /home/demo/bin/env.sh
-          exec bin/kafka
-          WRAP
-
-          cat > /home/demo/bin/start-karafka.sh <<'WRAP'
-          #!/bin/bash
-          . /home/demo/bin/env.sh
-          exec bundle exec karafka server
-          WRAP
-
-          cat > /home/demo/bin/start-rails.sh <<'WRAP'
-          #!/bin/bash
-          . /home/demo/bin/env.sh
-          exec bin/rails server -b 0.0.0.0 -p 3000
-          WRAP
-
-          chmod +x /home/demo/bin/*.sh
-          chown -R demo:demo /home/demo/bin
+          chmod +x /home/demo/bin/start-kafka.sh
+          chown demo:demo /home/demo/bin/start-kafka.sh
 
           cat > /etc/systemd/system/demo-kafka.service <<'UNIT'
           [Unit]
@@ -265,43 +239,25 @@ Resources:
           WantedBy=multi-user.target
           UNIT
 
-          cat > /etc/systemd/system/demo-karafka.service <<'UNIT'
-          [Unit]
-          Description=finance-tracker demo - Karafka consumers
-          After=demo-kafka.service
-          Wants=demo-kafka.service
-
-          [Service]
-          Type=simple
-          User=demo
-          ExecStart=/home/demo/bin/start-karafka.sh
-          Restart=on-failure
-
-          [Install]
-          WantedBy=multi-user.target
-          UNIT
-
-          cat > /etc/systemd/system/demo-rails.service <<'UNIT'
-          [Unit]
-          Description=finance-tracker demo - Rails app
-
-          [Service]
-          Type=simple
-          User=demo
-          ExecStart=/home/demo/bin/start-rails.sh
-          Restart=on-failure
-
-          [Install]
-          WantedBy=multi-user.target
-          UNIT
-
           systemctl daemon-reload
-          systemctl enable --now demo-kafka demo-karafka demo-rails
+          systemctl enable --now demo-kafka
+
+          # --- App + consumers, as prebuilt containers (Docker's own
+          # --restart policy supervises these, the role systemd plays for
+          # Kafka above). --network host so they reach Postgres/Valkey/Kafka
+          # on localhost exactly like the old native processes did. ---------
+          docker run --rm --network host --env-file /etc/finance-tracker.env "${DemoImage}" bin/rails db:create db:schema:load db:seed
+
+          docker run -d --name finance-tracker-rails --network host --restart unless-stopped \
+            --env-file /etc/finance-tracker.env "${DemoImage}"
+
+          docker run -d --name finance-tracker-karafka --network host --restart unless-stopped \
+            --env-file /etc/finance-tracker.env "${DemoImage}" bundle exec karafka server
 
 Outputs:
   DemoURL:
-    Description: Public URL for the demo (Puma on :3000, no reverse proxy in front)
-    Value: !Sub http://${DemoInstance.PublicDnsName}:3000
+    Description: Public URL for the demo (Thruster, inside the prebuilt container, on :80)
+    Value: !Sub http://${DemoInstance.PublicDnsName}
 
   InstanceId:
     Value: !Ref DemoInstance
