@@ -88,14 +88,20 @@ Resources:
         - AttributeName: pk
           KeyType: HASH
 
-  # Delete-only subset of deploy-policy.json's already-proven permission
-  # set (see CLAUDE.md §13) - everything that policy grants for human
-  # debugging (Session Manager, GetTemplate, DescribeStackEvents/Resources)
-  # is left out, since this Lambda only ever calls DeleteStack.
-  TeardownRole:
+  # One shared role for both the public API Lambda and the reconciler
+  # timer below - matching EventTicketing, where one managed identity
+  # backs both the HTTP route and the timer trigger. Splitting these by
+  # create-vs-delete stopped being sound once the public endpoint itself
+  # can recover a failed deploy (DeleteStack) and the reconciler can also
+  # redeploy after an expiry-driven delete (CreateStack): both paths need
+  # the full lifecycle, not half of it each. Still a deliberate subset of
+  # deploy-policy.json's permission set (CLAUDE.md §13) - human-debugging
+  # actions (Session Manager, GetTemplate, DescribeStackEvents/Resources)
+  # stay out, since neither Lambda ever needs them.
+  DemoLifecycleRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: finance-tracker-demo-teardown-role
+      RoleName: finance-tracker-demo-lifecycle-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -106,108 +112,14 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: DeleteDemoStackOnly
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeStacks
-                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
-              - Effect: Allow
-                Action: ec2:DescribeInstances
-                Resource: "*"
-              - Effect: Allow
-                Action: ec2:TerminateInstances
-                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:instance/*
-                Condition:
-                  StringEquals:
-                    aws:ResourceTag/Name: finance-tracker-demo
-              - Effect: Allow
-                Action: ec2:DescribeSecurityGroups
-                Resource: "*"
-              - Effect: Allow
-                Action: ec2:DeleteSecurityGroup
-                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:security-group/*
-                Condition:
-                  StringLike:
-                    "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
-              # No IAM permissions here anymore: DemoInstanceRole/Profile are
-              # permanent now (created once, above), so deleting demo-stack.yml
-              # never touches IAM.
-
-  TeardownFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: finance-tracker-demo-teardown
-      Runtime: python3.12
-      Handler: index.handler
-      Role: !GetAtt TeardownRole.Arn
-      Timeout: 30
-      Environment:
-        Variables:
-          STACK_NAME: !Ref DemoStackName
-      Code:
-        ZipFile: |
-          import os
-
-          import boto3
-
-          cfn = boto3.client("cloudformation")
-          STACK_NAME = os.environ["STACK_NAME"]
-
-
-          def handler(event, context):
-              cfn.delete_stack(StackName=STACK_NAME)
-
-  # Lets EventBridge Scheduler invoke the teardown Lambda on our behalf -
-  # scoped to exactly that one function, trusted only by the scheduler
-  # service itself.
-  SchedulerInvocationRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: finance-tracker-demo-scheduler-role
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: scheduler.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: InvokeTeardownOnly
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !GetAtt TeardownFunction.Arn
-
-  # Create-only subset of the same deploy-policy.json permission set (see
-  # TeardownRole above), plus what only the launcher needs: reading the
-  # template out of S3, and managing the one teardown schedule.
-  LauncherRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: finance-tracker-demo-launcher-role
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: CreateAndDescribeDemoStack
+        - PolicyName: CreateDeleteDescribeDemoStack
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
                   - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
                   - cloudformation:DescribeStacks
                 Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
               - Effect: Allow
@@ -257,9 +169,21 @@ Resources:
                 Condition:
                   StringLike:
                     "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
-              # DemoInstanceRole is created once, above, not by this stack's
-              # own CreateStack calls - this is the only IAM permission the
-              # launcher needs for it: attach, never create.
+              - Effect: Allow
+                Action: ec2:TerminateInstances
+                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:instance/*
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Name: finance-tracker-demo
+              - Effect: Allow
+                Action: ec2:DeleteSecurityGroup
+                Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:security-group/*
+                Condition:
+                  StringLike:
+                    "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
+              # No IAM permissions for DemoInstanceRole/Profile beyond
+              # PassRole below: they're permanent (created once, above), so
+              # neither creating nor deleting demo-stack.yml ever touches IAM.
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !GetAtt DemoInstanceRole.Arn
@@ -274,18 +198,6 @@ Resources:
               - Effect: Allow
                 Action: ssm:GetParameters
                 Resource: arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*
-              - Effect: Allow
-                Action:
-                  - scheduler:CreateSchedule
-                  - scheduler:UpdateSchedule
-                  - scheduler:GetSchedule
-                Resource: !Sub arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/finance-tracker-demo-teardown
-              - Effect: Allow
-                Action: iam:PassRole
-                Resource: !GetAtt SchedulerInvocationRole.Arn
-                Condition:
-                  StringEquals:
-                    iam:PassedToService: scheduler.amazonaws.com
 
   LauncherFunction:
     Type: AWS::Lambda::Function
@@ -293,64 +205,69 @@ Resources:
       FunctionName: finance-tracker-demo-launcher
       Runtime: python3.12
       Handler: index.handler
-      Role: !GetAtt LauncherRole.Arn
+      Role: !GetAtt DemoLifecycleRole.Arn
       Timeout: 30
       Environment:
         Variables:
           STACK_NAME: !Ref DemoStackName
           TEMPLATE_URL: !Sub https://${DemoTemplateBucket}.s3.${AWS::Region}.amazonaws.com/demo-stack.yml
-          SCHEDULE_NAME: finance-tracker-demo-teardown
-          SCHEDULE_GROUP: default
-          TEARDOWN_FUNCTION_ARN: !GetAtt TeardownFunction.Arn
-          SCHEDULER_ROLE_ARN: !GetAtt SchedulerInvocationRole.Arn
+          STATE_TABLE_NAME: !Ref DemoStateTable
           EXTEND_MINUTES: !Ref ExtendMinutes
       Code:
         ZipFile: |
           import json
           import os
           import time
+          import urllib.request
 
           import boto3
           import botocore
 
           cfn = boto3.client("cloudformation")
-          scheduler = boto3.client("scheduler")
+          dynamodb = boto3.client("dynamodb")
 
           STACK_NAME = os.environ["STACK_NAME"]
           TEMPLATE_URL = os.environ["TEMPLATE_URL"]
-          SCHEDULE_NAME = os.environ["SCHEDULE_NAME"]
-          SCHEDULE_GROUP = os.environ["SCHEDULE_GROUP"]
-          TEARDOWN_FUNCTION_ARN = os.environ["TEARDOWN_FUNCTION_ARN"]
-          SCHEDULER_ROLE_ARN = os.environ["SCHEDULER_ROLE_ARN"]
+          STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
           EXTEND_MINUTES = int(os.environ["EXTEND_MINUTES"])
 
 
           def handler(event, context):
+              method = event["requestContext"]["http"]["method"]
               status, url = describe_stack()
 
-              if status is None:
-                  cfn.create_stack(
-                      StackName=STACK_NAME,
-                      TemplateURL=TEMPLATE_URL,
-                      Capabilities=["CAPABILITY_NAMED_IAM"],
-                  )
-                  return respond("starting")
+              if method == "POST":
+                  expires_at = extend_expiry()
+                  if status is None:
+                      cfn.create_stack(StackName=STACK_NAME, TemplateURL=TEMPLATE_URL, Capabilities=["CAPABILITY_NAMED_IAM"])
+                      return respond("starting", None, expires_at)
+                  if status == "ROLLBACK_COMPLETE":
+                      cfn.delete_stack(StackName=STACK_NAME)
+                      return respond("starting", None, expires_at)
+                  return respond(classify(status, url), url, expires_at)
 
-              if status == "ROLLBACK_COMPLETE":
-                  cfn.delete_stack(StackName=STACK_NAME)
-                  return respond("restarting")
+              # GET: read-only - never creates, deletes, or extends anything.
+              return respond(classify(status, url), url, get_expiry())
 
-              if status == "CREATE_COMPLETE":
-                  extend_teardown()
-                  return respond("ready", url)
 
+          def classify(status, url):
+              if status in (None, "ROLLBACK_COMPLETE", "DELETE_COMPLETE"):
+                  return "stopped"
               if status == "CREATE_IN_PROGRESS":
-                  return respond("starting")
-
+                  return "starting"
               if status == "DELETE_IN_PROGRESS":
-                  return respond("restarting")
+                  return "stopping"
+              if status == "CREATE_COMPLETE":
+                  return "ready" if is_healthy(url) else "starting"
+              return "stopped"
 
-              return respond(status.lower())
+
+          def is_healthy(url):
+              try:
+                  with urllib.request.urlopen(url, timeout=3) as response:
+                      return 200 <= response.status < 400
+              except Exception:
+                  return False
 
 
           def describe_stack():
@@ -365,28 +282,121 @@ Resources:
               return stack["StackStatus"], outputs.get("DemoURL")
 
 
-          def extend_teardown():
-              run_at = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() + EXTEND_MINUTES * 60))
-              kwargs = {
-                  "Name": SCHEDULE_NAME,
-                  "GroupName": SCHEDULE_GROUP,
-                  "ScheduleExpression": f"at({run_at})",
-                  "FlexibleTimeWindow": {"Mode": "OFF"},
-                  "ActionAfterCompletion": "DELETE",
-                  "Target": {"Arn": TEARDOWN_FUNCTION_ARN, "RoleArn": SCHEDULER_ROLE_ARN},
-              }
-              try:
-                  scheduler.update_schedule(**kwargs)
-              except scheduler.exceptions.ResourceNotFoundException:
-                  scheduler.create_schedule(**kwargs)
+          def get_expiry():
+              item = dynamodb.get_item(TableName=STATE_TABLE_NAME, Key={"pk": {"S": "demo"}}).get("Item")
+              return item["expiresAt"]["S"] if item else None
 
 
-          def respond(status, url=None):
+          def extend_expiry():
+              expires_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + EXTEND_MINUTES * 60))
+              dynamodb.put_item(TableName=STATE_TABLE_NAME, Item={"pk": {"S": "demo"}, "expiresAt": {"S": expires_at}})
+              return expires_at
+
+
+          def respond(state, url=None, expires_at=None):
               return {
                   "statusCode": 200,
                   "headers": {"Content-Type": "application/json"},
-                  "body": json.dumps({"status": status, "url": url}),
+                  "body": json.dumps({"state": state, "url": url, "expiresAt": expires_at}),
               }
+
+  # Runs on a fixed timer, not a per-visit schedule - matches EventTicketing's
+  # own 2-minute reconciliation loop. This is what actually deletes the
+  # stack once DemoStateTable's expiresAt passes, and what redeploys it if
+  # a POST pushed expiresAt back out while the old stack was still deleting
+  # (nothing to delete by the time this runs, but still something to create).
+  ReconcilerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: finance-tracker-demo-reconciler
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt DemoLifecycleRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          STACK_NAME: !Ref DemoStackName
+          TEMPLATE_URL: !Sub https://${DemoTemplateBucket}.s3.${AWS::Region}.amazonaws.com/demo-stack.yml
+          STATE_TABLE_NAME: !Ref DemoStateTable
+      Code:
+        ZipFile: |
+          import os
+          import time
+
+          import boto3
+          import botocore
+
+          cfn = boto3.client("cloudformation")
+          dynamodb = boto3.client("dynamodb")
+
+          STACK_NAME = os.environ["STACK_NAME"]
+          TEMPLATE_URL = os.environ["TEMPLATE_URL"]
+          STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
+
+
+          def handler(event, context):
+              status, _ = describe_stack()
+              expires_at = get_expiry()
+              now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+              expired = expires_at is None or now >= expires_at
+
+              if expired and status in ("CREATE_COMPLETE", "ROLLBACK_COMPLETE"):
+                  cfn.delete_stack(StackName=STACK_NAME)
+              elif not expired and status in (None, "DELETE_COMPLETE"):
+                  cfn.create_stack(StackName=STACK_NAME, TemplateURL=TEMPLATE_URL, Capabilities=["CAPABILITY_NAMED_IAM"])
+              # CREATE_IN_PROGRESS / DELETE_IN_PROGRESS: left for the next run.
+
+
+          def describe_stack():
+              try:
+                  stacks = cfn.describe_stacks(StackName=STACK_NAME)["Stacks"]
+              except botocore.exceptions.ClientError as error:
+                  if "does not exist" in str(error):
+                      return None, None
+                  raise
+              return stacks[0]["StackStatus"], None
+
+
+          def get_expiry():
+              item = dynamodb.get_item(TableName=STATE_TABLE_NAME, Key={"pk": {"S": "demo"}}).get("Item")
+              return item["expiresAt"]["S"] if item else None
+
+  # Lets EventBridge Scheduler invoke the reconciler on our behalf - scoped
+  # to exactly that one function, trusted only by the scheduler service.
+  SchedulerInvocationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: finance-tracker-demo-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeReconcilerOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt ReconcilerFunction.Arn
+
+  # Fixed cadence, declared once here rather than created/updated at
+  # runtime - unlike the per-visit teardown this replaces, this schedule's
+  # target time never changes, so no Lambda needs scheduler:CreateSchedule/
+  # UpdateSchedule permissions anymore.
+  ReconcilerSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: finance-tracker-demo-reconciler
+      ScheduleExpression: rate(2 minutes)
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt ReconcilerFunction.Arn
+        RoleArn: !GetAtt SchedulerInvocationRole.Arn
 
   # Required whenever a Function URL's AuthType is NONE - without this,
   # public callers get an AccessDenied even though AuthType says "no auth".
@@ -405,15 +415,15 @@ Resources:
       AuthType: NONE
       Cors:
         AllowOrigins: [!Ref PortfolioOrigin]
-        AllowMethods: [GET]
+        AllowMethods: [GET, POST]
         MaxAge: 300
 
 Outputs:
   LauncherUrl:
     Description: >
-      Public endpoint the portfolio site calls on page load, and polls
-      every few seconds afterward until it gets back a "ready" status with
-      a url.
+      Public endpoint the portfolio site calls. POST on page load (starts
+      or extends); GET to poll afterward, read-only, every few seconds
+      until state is "ready" with a url.
     Value: !GetAtt LauncherFunctionUrl.FunctionUrl
 
   DemoTemplateBucketName:
