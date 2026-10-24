@@ -49,6 +49,15 @@ Parameters:
     Default: main
     Description: Branch, tag, or commit to deploy.
 
+  DemoInstanceProfileName:
+    Type: String
+    Default: finance-tracker-demo-instance-profile
+    Description: >
+      Name of the instance profile created once by launcher.yml (CLAUDE.md
+      §13) - this template only attaches it by name, the same way
+      EventTicketing's Azure VM template only attaches a pre-made managed
+      identity. A demo cycle never creates or deletes an IAM identity.
+
   SafetyNetShutdownMinutes:
     Type: Number
     Default: 35
@@ -90,42 +99,13 @@ Resources:
           CidrIp: 0.0.0.0/0
           Description: Public access to the Rails app (Puma binds here directly, no nginx in front for this first version)
 
-  DemoInstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: finance-tracker-demo-instance-role
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Policies:
-        - PolicyName: ReadDemoMasterKey
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ssm:GetParameter
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${RailsMasterKeyParameterName}
-
-  DemoInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: finance-tracker-demo-instance-profile
-      Roles:
-        - !Ref DemoInstanceRole
-
   DemoInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
       # Always the current Amazon Linux 2023 AMI - no AMI ID to keep updated by hand.
       ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
-      IamInstanceProfile: !Ref DemoInstanceProfile
+      IamInstanceProfile: !Ref DemoInstanceProfileName
       SecurityGroupIds:
         - !Ref DemoSecurityGroup
       Tags:
