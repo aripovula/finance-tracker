@@ -255,27 +255,12 @@ Resources:
                 Condition:
                   StringLike:
                     "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
-              # Hardcoded, not ${DemoStackName}-instance-role: see the same
-              # note on TeardownRole above - demo-stack.yml's RoleName and
-              # InstanceProfileName are fixed strings, not parameterized.
-              - Effect: Allow
-                Action:
-                  - iam:CreateRole
-                  - iam:GetRole
-                  - iam:AttachRolePolicy
-                  - iam:PutRolePolicy
-                  - iam:TagRole
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/finance-tracker-demo-instance-role
-              - Effect: Allow
-                Action:
-                  - iam:CreateInstanceProfile
-                  - iam:GetInstanceProfile
-                  - iam:AddRoleToInstanceProfile
-                  - iam:TagInstanceProfile
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/finance-tracker-demo-instance-profile
+              # DemoInstanceRole is created once, above, not by this stack's
+              # own CreateStack calls - this is the only IAM permission the
+              # launcher needs for it: attach, never create.
               - Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/finance-tracker-demo-instance-role
+                Resource: !GetAtt DemoInstanceRole.Arn
                 Condition:
                   StringEquals:
                     iam:PassedToService: ec2.amazonaws.com
