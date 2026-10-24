@@ -72,6 +72,22 @@ Resources:
       Roles:
         - !Ref DemoInstanceRole
 
+  # Tracks when the shared demo should next be torn down - CloudFormation
+  # has no field for this. Plays the same role EventTicketing's own small
+  # table does for its expiresAt: the launcher writes it on every POST, the
+  # reconciler reads it to decide whether to create or delete the stack.
+  DemoStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: finance-tracker-demo-state
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
   # Delete-only subset of deploy-policy.json's already-proven permission
   # set (see CLAUDE.md §13) - everything that policy grants for human
   # debugging (Session Manager, GetTemplate, DescribeStackEvents/Resources)
@@ -250,6 +266,11 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: ec2.amazonaws.com
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                Resource: !GetAtt DemoStateTable.Arn
               - Effect: Allow
                 Action: ssm:GetParameters
                 Resource: arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*
