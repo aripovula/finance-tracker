@@ -117,23 +117,9 @@ Resources:
                 Condition:
                   StringLike:
                     "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
-              - Effect: Allow
-                Action:
-                  - iam:GetRole
-                  - iam:DeleteRole
-                  - iam:DetachRolePolicy
-                  - iam:DeleteRolePolicy
-                # Hardcoded, not ${DemoStackName}-instance-role: demo-stack.yml
-                # itself hardcodes this exact name, unrelated to any stack-name
-                # parameter it doesn't have - deriving it from DemoStackName here
-                # would silently break if that parameter ever changed.
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/finance-tracker-demo-instance-role
-              - Effect: Allow
-                Action:
-                  - iam:GetInstanceProfile
-                  - iam:RemoveRoleFromInstanceProfile
-                  - iam:DeleteInstanceProfile
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/finance-tracker-demo-instance-profile
+              # No IAM permissions here anymore: DemoInstanceRole/Profile are
+              # permanent now (created once, above), so deleting demo-stack.yml
+              # never touches IAM.
 
   TeardownFunction:
     Type: AWS::Lambda::Function
