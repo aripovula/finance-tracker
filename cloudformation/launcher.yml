@@ -235,6 +235,11 @@ Resources:
               - Effect: Allow
                 Action: ssm:GetParameters
                 Resource: arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*
+              - Effect: Allow
+                Action:
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${DemoDistribution}
 
   LauncherFunction:
     Type: AWS::Lambda::Function
@@ -250,6 +255,8 @@ Resources:
           TEMPLATE_URL: !Sub https://${DemoTemplateBucket}.s3.${AWS::Region}.amazonaws.com/demo-stack.yml
           STATE_TABLE_NAME: !Ref DemoStateTable
           EXTEND_MINUTES: !Ref ExtendMinutes
+          DISTRIBUTION_ID: !Ref DemoDistribution
+          PUBLIC_URL: !Sub https://${DemoDistribution.DomainName}
       Code:
         ZipFile: |
           import json
@@ -262,32 +269,35 @@ Resources:
 
           cfn = boto3.client("cloudformation")
           dynamodb = boto3.client("dynamodb")
+          cloudfront = boto3.client("cloudfront")
 
           STACK_NAME = os.environ["STACK_NAME"]
           TEMPLATE_URL = os.environ["TEMPLATE_URL"]
           STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
           EXTEND_MINUTES = int(os.environ["EXTEND_MINUTES"])
+          DISTRIBUTION_ID = os.environ["DISTRIBUTION_ID"]
+          PUBLIC_URL = os.environ["PUBLIC_URL"]
 
 
           def handler(event, context):
               method = event["requestContext"]["http"]["method"]
-              status, url = describe_stack()
+              status, origin_hostname = describe_stack()
 
               if method == "POST":
                   expires_at = extend_expiry()
                   if status is None:
                       cfn.create_stack(StackName=STACK_NAME, TemplateURL=TEMPLATE_URL, Capabilities=["CAPABILITY_NAMED_IAM"])
-                      return respond("starting", None, expires_at)
+                      return respond("starting", expires_at)
                   if status == "ROLLBACK_COMPLETE":
                       cfn.delete_stack(StackName=STACK_NAME)
-                      return respond("starting", None, expires_at)
-                  return respond(classify(status, url), url, expires_at)
+                      return respond("starting", expires_at)
+                  return respond(classify(status, origin_hostname), expires_at)
 
               # GET: read-only - never creates, deletes, or extends anything.
-              return respond(classify(status, url), url, get_expiry())
+              return respond(classify(status, origin_hostname), get_expiry())
 
 
-          def classify(status, url):
+          def classify(status, origin_hostname):
               if status in (None, "ROLLBACK_COMPLETE", "DELETE_COMPLETE"):
                   return "stopped"
               if status == "CREATE_IN_PROGRESS":
@@ -295,8 +305,19 @@ Resources:
               if status == "DELETE_IN_PROGRESS":
                   return "stopping"
               if status == "CREATE_COMPLETE":
-                  return "ready" if is_healthy(url) else "starting"
+                  sync_origin(origin_hostname)
+                  return "ready" if is_healthy(PUBLIC_URL) else "starting"
               return "stopped"
+
+
+          def sync_origin(origin_hostname):
+              current = cloudfront.get_distribution_config(Id=DISTRIBUTION_ID)
+              config = current["DistributionConfig"]
+              origin = config["Origins"]["Items"][0]
+              if origin["DomainName"] == origin_hostname:
+                  return
+              origin["DomainName"] = origin_hostname
+              cloudfront.update_distribution(Id=DISTRIBUTION_ID, IfMatch=current["ETag"], DistributionConfig=config)
 
 
           def is_healthy(url):
@@ -316,7 +337,7 @@ Resources:
                   raise
               stack = stacks[0]
               outputs = {o["OutputKey"]: o["OutputValue"] for o in stack.get("Outputs", [])}
-              return stack["StackStatus"], outputs.get("DemoURL")
+              return stack["StackStatus"], outputs.get("InstancePublicDnsName")
 
 
           def get_expiry():
@@ -330,11 +351,11 @@ Resources:
               return expires_at
 
 
-          def respond(state, url=None, expires_at=None):
+          def respond(state, expires_at=None):
               return {
                   "statusCode": 200,
                   "headers": {"Content-Type": "application/json"},
-                  "body": json.dumps({"state": state, "url": url, "expiresAt": expires_at}),
+                  "body": json.dumps({"state": state, "url": PUBLIC_URL if state == "ready" else None, "expiresAt": expires_at}),
               }
 
   # Runs on a fixed timer, not a per-visit schedule - matches EventTicketing's
