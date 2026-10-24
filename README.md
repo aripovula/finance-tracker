@@ -369,7 +369,10 @@ aws cloudformation create-stack \
   --stack-name finance-tracker-demo \
   --template-body file://cloudformation/demo-stack.yml
 
-# Watch it come up, then grab the URL once CREATE_COMPLETE.
+# Watch it come up, then grab the URL once CREATE_COMPLETE. DemoURL is a
+# direct, plain-HTTP link to this one instance, for debugging only - real
+# visitors get launcher.yml's stable, HTTPS, CloudFront URL instead (see
+# "Demo launcher" below), which stays the same across every demo cycle.
 aws cloudformation wait stack-create-complete --stack-name finance-tracker-demo
 aws cloudformation describe-stacks --stack-name finance-tracker-demo \
   --query "Stacks[0].Outputs"
@@ -402,6 +405,15 @@ teardown time forward another 30 minutes if it's already running (same if a visi
 triggers a later POST — every POST extends). A separate reconciler Lambda, on a fixed 2-minute
 timer, is what actually deletes the stack once that teardown time passes, or recreates it if a
 POST came in while the old one was still deleting.
+
+The URL visitors actually get is a CloudFront distribution's own domain (`https://d.......
+cloudfront.net`), not the EC2 instance directly — real HTTPS with zero custom domain and zero
+certificate management, since CloudFront already has a valid, AWS-managed certificate on its own
+domain for every distribution. That domain never changes between demo cycles even though the EC2
+instance behind it does; the launcher repoints CloudFront's origin at whichever instance is
+currently running, and only reports `"ready"` once a direct HTTPS request through that same
+CloudFront URL actually succeeds (not just once the EC2 instance exists — its containers can take
+a while longer to actually start answering requests).
 
 ```bash
 # Once, ahead of time: store the Rails master key as a SecureString SSM parameter.
