@@ -342,14 +342,18 @@ that's a deployment-sizing question, not something the load test itself needs to
 ## Ephemeral AWS demo deployment
 
 This app isn't meant to run on AWS 24/7. `cloudformation/demo-stack.yml` stands up a single EC2
-instance running the whole stack natively — Postgres, Redis-compatible Valkey, Kafka, the Rails
-app, and the Karafka consumers — meant to be created on demand and deleted again roughly 30
-minutes later. See `CLAUDE.md` §13 for the full reasoning (short version: RDS/ElastiCache/MSK
-provisioning time alone would eat most of a 30-minute window).
+instance — Postgres, Redis-compatible Valkey, and Kafka natively, the Rails app and Karafka
+consumers as containers pulled from a prebuilt image — meant to be created on demand and deleted
+again roughly 30 minutes later. See `CLAUDE.md` §13 for the full reasoning (short version:
+RDS/ElastiCache/MSK provisioning time alone would eat most of a 30-minute window).
 
 The thing that creates and deletes it on a visitor's behalf is `cloudformation/launcher.yml` —
-see the "Demo launcher" section below. Until the portfolio website itself exists to call it,
-here's how to test the template by hand:
+see the "Demo launcher" section below, and deploy it first: it's what creates the EC2 instance
+role this template only attaches by name, so `demo-stack.yml` can't successfully create until
+that exists. `.github/workflows/release.yml` also needs to have run at least once (pushes
+`ghcr.io/aripovula/finance-tracker:latest`, the image this template pulls) before a create-stack
+here will boot anything real. Once both of those are in place, here's how to test the template
+by hand:
 
 ```bash
 # Once, ahead of time: store the Rails master key as a SecureString SSM parameter.
@@ -359,11 +363,11 @@ aws ssm put-parameter \
   --type SecureString \
   --value "$(cat config/master.key)"
 
-# Create the stack (defaults to the main branch of this repo's public GitHub URL).
+# Create the stack. No --capabilities needed: this template creates no IAM
+# resources of its own anymore, it only attaches the role launcher.yml made.
 aws cloudformation create-stack \
   --stack-name finance-tracker-demo \
-  --template-body file://cloudformation/demo-stack.yml \
-  --capabilities CAPABILITY_NAMED_IAM
+  --template-body file://cloudformation/demo-stack.yml
 
 # Watch it come up, then grab the URL once CREATE_COMPLETE.
 aws cloudformation wait stack-create-complete --stack-name finance-tracker-demo
@@ -372,7 +376,8 @@ aws cloudformation describe-stacks --stack-name finance-tracker-demo \
 
 # Bootstrap logs, if something looks wrong (via Session Manager, no SSH open):
 aws ssm start-session --target <InstanceId>
-# then on the instance: sudo tail -f /var/log/demo-bootstrap.log
+# then on the instance: sudo tail -f /var/log/demo-bootstrap.log, or
+# docker logs finance-tracker-rails / docker logs finance-tracker-karafka
 
 # Tear it down.
 aws cloudformation delete-stack --stack-name finance-tracker-demo
@@ -391,19 +396,24 @@ by actually running it. Treat the first real deploy as a test run, not a known-g
 once by hand and left running indefinitely; it's the thing that creates/extends/deletes the
 single shared `finance-tracker-demo` instance, not something recreated per visitor.
 
-In short: there's only ever at most one demo instance. Opening the portfolio page calls a public
-Lambda Function URL, which creates the instance if it doesn't exist, or — if it's already
-running — pushes its scheduled teardown forward another 30 minutes. If nobody visits for 30
-minutes, that teardown fires and deletes the stack.
+In short: there's only ever at most one demo instance. The portfolio page POSTs to a public
+Lambda Function URL on page load, which creates the instance if it doesn't exist, or pushes its
+teardown time forward another 30 minutes if it's already running (same if a visitor's click
+triggers a later POST — every POST extends). A separate reconciler Lambda, on a fixed 2-minute
+timer, is what actually deletes the stack once that teardown time passes, or recreates it if a
+POST came in while the old one was still deleting.
 
 ```bash
-# One-time setup, same SSM parameter demo-stack.yml itself needs:
+# Once, ahead of time: store the Rails master key as a SecureString SSM parameter.
+# demo-stack.yml needs this directly too.
 aws ssm put-parameter \
   --name /finance-tracker/demo/rails_master_key \
   --type SecureString \
   --value "$(cat config/master.key)"
 
-# Deploy the launcher itself (not the demo instance — this stack stays up).
+# Deploy the launcher itself (not the demo instance — this stack stays up,
+# and creates the demo instance's IAM role, used but never recreated by
+# demo-stack.yml).
 aws cloudformation create-stack \
   --stack-name finance-tracker-demo-launcher \
   --template-body file://cloudformation/launcher.yml \
@@ -423,17 +433,24 @@ aws cloudformation describe-stacks --stack-name finance-tracker-demo-launcher \
   --query "Stacks[0].Outputs[?OutputKey=='LauncherUrl'].OutputValue" --output text
 ```
 
-The portfolio page's JS is just: call the launcher URL on page load, and if the response is
-`{"status": "ready", "url": "..."}`, show/redirect to that URL; otherwise poll again every few
-seconds. No API key, no CORS issue (the Lambda Function URL's CORS config only allows the exact
-`PortfolioOrigin` you deployed with).
+One more one-time step: GHCR packages default to private even on a public repo, and the EC2
+instance pulls the demo image with no registry credentials at all (keeping the whole path
+keyless). After `.github/workflows/release.yml` runs once, go to the package's settings on
+GitHub and set its visibility to Public.
+
+The portfolio page's JS: `POST` the launcher URL on page load and on later activity (a click),
+`GET` it to poll, read-only, every few seconds in between. Both return the same shape —
+`{"state": "...", "url": "...", "expiresAt": "..."}`, `state` one of `stopped`/`starting`/
+`ready`/`stopping` — show/redirect to `url` once `state` is `"ready"`. No API key, no CORS issue
+(the Lambda Function URL's CORS config only allows the exact `PortfolioOrigin` you deployed
+with, and only `GET`/`POST`).
 
 Like `demo-stack.yml`, this hasn't been run against a real AWS account yet either — checked for
-YAML validity and the embedded Python's syntax, not for actual IAM-permission correctness. The
-`LauncherRole`/`TeardownRole` policies are a deliberate subset of `deploy-policy.json`'s
-already-iterated-on permission set (see `CLAUDE.md` §13), but the first real `CreateStack` call
-through this path may still surface a missing permission the same way the human deploy path did
-— treat it the same as `demo-stack.yml`: a test run, not a known-good path yet.
+YAML validity and the embedded Python's syntax, not for actual IAM-permission correctness.
+`DemoLifecycleRole`'s policy is a deliberate subset of `deploy-policy.json`'s already-iterated-on
+permission set (see `CLAUDE.md` §13), but the first real `CreateStack` call through this path may
+still surface a missing permission the same way the human deploy path did — treat it the same as
+`demo-stack.yml`: a test run, not a known-good path yet.
 
 ## Project structure
 
