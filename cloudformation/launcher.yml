@@ -25,10 +25,11 @@ Parameters:
     Description: How far forward each visit pushes the teardown schedule.
 
 Resources:
-  # Holds demo-stack.yml so CreateStack can reference it via TemplateURL
-  # (the launcher Lambda doesn't embed a copy of that template - it would
-  # drift out of sync the next time demo-stack.yml changes). Re-upload
-  # whenever that file changes:
+  # Holds demo-stack.yml so the Lambdas below can fetch and pass it as
+  # CreateStack's TemplateBody themselves (TemplateURL was tried first and
+  # observed to hang indefinitely - see get_template_body() below). Not
+  # embedded directly in either Lambda - that would drift out of sync the
+  # next time demo-stack.yml changes. Re-upload whenever that file changes:
   #   aws s3 cp cloudformation/demo-stack.yml s3://<this bucket's name>/demo-stack.yml
   DemoTemplateBucket:
     Type: AWS::S3::Bucket
@@ -252,7 +253,7 @@ Resources:
       Environment:
         Variables:
           STACK_NAME: !Ref DemoStackName
-          TEMPLATE_URL: !Sub https://${DemoTemplateBucket}.s3.${AWS::Region}.amazonaws.com/demo-stack.yml
+          TEMPLATE_BUCKET: !Ref DemoTemplateBucket
           STATE_TABLE_NAME: !Ref DemoStateTable
           EXTEND_MINUTES: !Ref ExtendMinutes
           DISTRIBUTION_ID: !Ref DemoDistribution
@@ -270,9 +271,10 @@ Resources:
           cfn = boto3.client("cloudformation")
           dynamodb = boto3.client("dynamodb")
           cloudfront = boto3.client("cloudfront")
+          s3 = boto3.client("s3")
 
           STACK_NAME = os.environ["STACK_NAME"]
-          TEMPLATE_URL = os.environ["TEMPLATE_URL"]
+          TEMPLATE_BUCKET = os.environ["TEMPLATE_BUCKET"]
           STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
           EXTEND_MINUTES = int(os.environ["EXTEND_MINUTES"])
           DISTRIBUTION_ID = os.environ["DISTRIBUTION_ID"]
@@ -286,7 +288,7 @@ Resources:
               if method == "POST":
                   expires_at = extend_expiry()
                   if status is None:
-                      cfn.create_stack(StackName=STACK_NAME, TemplateURL=TEMPLATE_URL, Capabilities=["CAPABILITY_NAMED_IAM"])
+                      cfn.create_stack(StackName=STACK_NAME, TemplateBody=get_template_body(), Capabilities=["CAPABILITY_NAMED_IAM"])
                       return respond("starting", expires_at)
                   if status == "ROLLBACK_COMPLETE":
                       cfn.delete_stack(StackName=STACK_NAME)
@@ -308,6 +310,15 @@ Resources:
                   sync_origin(origin_hostname)
                   return "ready" if is_healthy(PUBLIC_URL) else "starting"
               return "stopped"
+
+
+          def get_template_body():
+              # Not TemplateURL: CloudFormation's own fetch of a TemplateURL
+              # pointing at this bucket was observed to hang indefinitely
+              # (CREATE_IN_PROGRESS, zero resources, for 15+ minutes) in
+              # testing - reading the object ourselves and passing its
+              # content as TemplateBody avoids that path entirely.
+              return s3.get_object(Bucket=TEMPLATE_BUCKET, Key="demo-stack.yml")["Body"].read().decode("utf-8")
 
 
           def sync_origin(origin_hostname):
@@ -374,7 +385,7 @@ Resources:
       Environment:
         Variables:
           STACK_NAME: !Ref DemoStackName
-          TEMPLATE_URL: !Sub https://${DemoTemplateBucket}.s3.${AWS::Region}.amazonaws.com/demo-stack.yml
+          TEMPLATE_BUCKET: !Ref DemoTemplateBucket
           STATE_TABLE_NAME: !Ref DemoStateTable
       Code:
         ZipFile: |
@@ -386,9 +397,10 @@ Resources:
 
           cfn = boto3.client("cloudformation")
           dynamodb = boto3.client("dynamodb")
+          s3 = boto3.client("s3")
 
           STACK_NAME = os.environ["STACK_NAME"]
-          TEMPLATE_URL = os.environ["TEMPLATE_URL"]
+          TEMPLATE_BUCKET = os.environ["TEMPLATE_BUCKET"]
           STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
 
 
@@ -401,7 +413,7 @@ Resources:
               if expired and status in ("CREATE_COMPLETE", "ROLLBACK_COMPLETE"):
                   cfn.delete_stack(StackName=STACK_NAME)
               elif not expired and status in (None, "DELETE_COMPLETE"):
-                  cfn.create_stack(StackName=STACK_NAME, TemplateURL=TEMPLATE_URL, Capabilities=["CAPABILITY_NAMED_IAM"])
+                  cfn.create_stack(StackName=STACK_NAME, TemplateBody=get_template_body(), Capabilities=["CAPABILITY_NAMED_IAM"])
               # CREATE_IN_PROGRESS / DELETE_IN_PROGRESS: left for the next run.
 
 
@@ -413,6 +425,10 @@ Resources:
                       return None, None
                   raise
               return stacks[0]["StackStatus"], None
+
+
+          def get_template_body():
+              return s3.get_object(Bucket=TEMPLATE_BUCKET, Key="demo-stack.yml")["Body"].read().decode("utf-8")
 
 
           def get_expiry():
