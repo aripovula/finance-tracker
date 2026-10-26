@@ -111,10 +111,11 @@ Resources:
             # to anything running this app.
             DomainName: example.com
             CustomOriginConfig:
-              # Matches demo-stack.yml's SG/Thruster port (3000, not 80 -
+              # Matches demo-stack.yml's SG/Thruster port (8080, not 80 -
               # the container can't bind 80 as its non-root user under
-              # --network host).
-              HTTPPort: 3000
+              # --network host - and not 3000 either, which collides with
+              # Puma's own default internal port).
+              HTTPPort: 8080
               OriginProtocolPolicy: http-only
         DefaultCacheBehavior:
           TargetOriginId: DemoOrigin
