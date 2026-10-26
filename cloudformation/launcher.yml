@@ -126,43 +126,33 @@ Resources:
           # strings to the origin, which Rails needs for sessions/CSRF.
           OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
 
-  # One shared role for both the public API Lambda and the reconciler
-  # timer below - matching EventTicketing, where one managed identity
-  # backs both the HTTP route and the timer trigger. Splitting these by
-  # create-vs-delete stopped being sound once the public endpoint itself
-  # can recover a failed deploy (DeleteStack) and the reconciler can also
-  # redeploy after an expiry-driven delete (CreateStack): both paths need
-  # the full lifecycle, not half of it each. Still a deliberate subset of
-  # deploy-policy.json's permission set (CLAUDE.md §13) - human-debugging
-  # actions (Session Manager, GetTemplate, DescribeStackEvents/Resources)
-  # stay out, since neither Lambda ever needs them.
-  DemoLifecycleRole:
+  # CloudFormation itself assumes this (via RoleARN, passed on every
+  # CreateStack/DeleteStack call below) to actually provision demo-stack.yml's
+  # resources, instead of continuing to use whichever Lambda invocation
+  # triggered the call. Needed because a Lambda's own credentials are tied to
+  # that one short invocation and don't remain valid for CloudFormation's
+  # resource provisioning, which runs asynchronously and continues well after
+  # the Lambda has already returned - observed directly as CreateStack
+  # accepting the call (parameters resolved correctly, confirmed via
+  # DescribeStacks) but then never creating a single resource, for 15+
+  # minutes, specifically when called using the Lambda's own role instead of
+  # a long-lived IAM user's credentials.
+  DemoProvisioningRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: finance-tracker-demo-lifecycle-role
+      RoleName: finance-tracker-demo-provisioning-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              Service: lambda.amazonaws.com
+              Service: cloudformation.amazonaws.com
             Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: CreateDeleteDescribeDemoStack
+        - PolicyName: ProvisionDemoStackResources
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Effect: Allow
-                Action:
-                  - cloudformation:CreateStack
-                  - cloudformation:DeleteStack
-                  - cloudformation:DescribeStacks
-                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
-              - Effect: Allow
-                Action: s3:GetObject
-                Resource: !Sub ${DemoTemplateBucket.Arn}/demo-stack.yml
               - Effect: Allow
                 Action: ec2:RunInstances
                 Resource: !Sub arn:aws:ec2:*:${AWS::AccountId}:instance/*
@@ -219,9 +209,6 @@ Resources:
                 Condition:
                   StringLike:
                     "aws:ResourceTag/aws:cloudformation:stack-name": !Sub "${DemoStackName}*"
-              # No IAM permissions for DemoInstanceRole/Profile beyond
-              # PassRole below: they're permanent (created once, above), so
-              # neither creating nor deleting demo-stack.yml ever touches IAM.
               - Effect: Allow
                 Action: iam:PassRole
                 Resource: !GetAtt DemoInstanceRole.Arn
@@ -229,13 +216,62 @@ Resources:
                   StringEquals:
                     iam:PassedToService: ec2.amazonaws.com
               - Effect: Allow
+                Action: ssm:GetParameters
+                Resource: arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*
+
+  # One shared role for both the public API Lambda and the reconciler
+  # timer below - matching EventTicketing, where one managed identity
+  # backs both the HTTP route and the timer trigger. Splitting these by
+  # create-vs-delete stopped being sound once the public endpoint itself
+  # can recover a failed deploy (DeleteStack) and the reconciler can also
+  # redeploy after an expiry-driven delete (CreateStack): both paths need
+  # the full lifecycle, not half of it each. Still a deliberate subset of
+  # deploy-policy.json's permission set (CLAUDE.md §13) - human-debugging
+  # actions (Session Manager, GetTemplate, DescribeStackEvents/Resources)
+  # stay out, since neither Lambda ever needs them.
+  DemoLifecycleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: finance-tracker-demo-lifecycle-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CreateDeleteDescribeDemoStack
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${DemoStackName}*/*
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub ${DemoTemplateBucket.Arn}/demo-stack.yml
+              # Actually provisioning demo-stack.yml's resources (EC2,
+              # security group, IAM PassRole to EC2, AMI resolve) is
+              # DemoProvisioningRole's job now, assumed by CloudFormation
+              # itself - this role only needs to hand that role over, not
+              # hold those permissions directly.
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt DemoProvisioningRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+              - Effect: Allow
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                 Resource: !GetAtt DemoStateTable.Arn
-              - Effect: Allow
-                Action: ssm:GetParameters
-                Resource: arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*
               - Effect: Allow
                 Action:
                   - cloudfront:GetDistributionConfig
@@ -258,6 +294,7 @@ Resources:
           EXTEND_MINUTES: !Ref ExtendMinutes
           DISTRIBUTION_ID: !Ref DemoDistribution
           PUBLIC_URL: !Sub https://${DemoDistribution.DomainName}
+          PROVISIONING_ROLE_ARN: !GetAtt DemoProvisioningRole.Arn
       Code:
         ZipFile: |
           import json
@@ -279,6 +316,7 @@ Resources:
           EXTEND_MINUTES = int(os.environ["EXTEND_MINUTES"])
           DISTRIBUTION_ID = os.environ["DISTRIBUTION_ID"]
           PUBLIC_URL = os.environ["PUBLIC_URL"]
+          PROVISIONING_ROLE_ARN = os.environ["PROVISIONING_ROLE_ARN"]
 
 
           def handler(event, context):
@@ -288,10 +326,10 @@ Resources:
               if method == "POST":
                   expires_at = extend_expiry()
                   if status is None:
-                      cfn.create_stack(StackName=STACK_NAME, TemplateBody=get_template_body(), Capabilities=["CAPABILITY_NAMED_IAM"])
+                      cfn.create_stack(StackName=STACK_NAME, TemplateBody=get_template_body(), Capabilities=["CAPABILITY_NAMED_IAM"], RoleARN=PROVISIONING_ROLE_ARN)
                       return respond("starting", expires_at)
                   if status == "ROLLBACK_COMPLETE":
-                      cfn.delete_stack(StackName=STACK_NAME)
+                      cfn.delete_stack(StackName=STACK_NAME, RoleARN=PROVISIONING_ROLE_ARN)
                       return respond("starting", expires_at)
                   return respond(classify(status, origin_hostname), expires_at)
 
@@ -387,6 +425,7 @@ Resources:
           STACK_NAME: !Ref DemoStackName
           TEMPLATE_BUCKET: !Ref DemoTemplateBucket
           STATE_TABLE_NAME: !Ref DemoStateTable
+          PROVISIONING_ROLE_ARN: !GetAtt DemoProvisioningRole.Arn
       Code:
         ZipFile: |
           import os
@@ -402,6 +441,7 @@ Resources:
           STACK_NAME = os.environ["STACK_NAME"]
           TEMPLATE_BUCKET = os.environ["TEMPLATE_BUCKET"]
           STATE_TABLE_NAME = os.environ["STATE_TABLE_NAME"]
+          PROVISIONING_ROLE_ARN = os.environ["PROVISIONING_ROLE_ARN"]
 
 
           def handler(event, context):
@@ -411,9 +451,9 @@ Resources:
               expired = expires_at is None or now >= expires_at
 
               if expired and status in ("CREATE_COMPLETE", "ROLLBACK_COMPLETE"):
-                  cfn.delete_stack(StackName=STACK_NAME)
+                  cfn.delete_stack(StackName=STACK_NAME, RoleARN=PROVISIONING_ROLE_ARN)
               elif not expired and status in (None, "DELETE_COMPLETE"):
-                  cfn.create_stack(StackName=STACK_NAME, TemplateBody=get_template_body(), Capabilities=["CAPABILITY_NAMED_IAM"])
+                  cfn.create_stack(StackName=STACK_NAME, TemplateBody=get_template_body(), Capabilities=["CAPABILITY_NAMED_IAM"], RoleARN=PROVISIONING_ROLE_ARN)
               # CREATE_IN_PROGRESS / DELETE_IN_PROGRESS: left for the next run.
 
 
