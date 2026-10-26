@@ -330,6 +330,15 @@
         "scheduler:DeleteSchedule"
       ],
       "Resource": "arn:aws:scheduler:*:<ACCOUNT_ID>:schedule/default/finance-tracker-demo-reconciler"
+    },
+    {
+      "Sid": "ReadOnlyTheLauncherLambdaLogs",
+      "Effect": "Allow",
+      "Action": ["logs:DescribeLogStreams", "logs:GetLogEvents", "logs:FilterLogEvents"],
+      "Resource": [
+        "arn:aws:logs:*:<ACCOUNT_ID>:log-group:/aws/lambda/finance-tracker-demo-launcher:*",
+        "arn:aws:logs:*:<ACCOUNT_ID>:log-group:/aws/lambda/finance-tracker-demo-reconciler:*"
+      ]
     }
   ]
 }
