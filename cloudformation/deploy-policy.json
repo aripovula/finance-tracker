@@ -258,6 +258,21 @@
       "Resource": "arn:aws:iam::<ACCOUNT_ID>:role/finance-tracker-demo-scheduler-role"
     },
     {
+      "Sid": "ManageOnlyTheProvisioningRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:TagRole"
+      ],
+      "Resource": "arn:aws:iam::<ACCOUNT_ID>:role/finance-tracker-demo-provisioning-role"
+    },
+    {
       "Sid": "PassLifecycleRoleToLambda",
       "Effect": "Allow",
       "Action": "iam:PassRole",
