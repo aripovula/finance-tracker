@@ -244,15 +244,18 @@ Resources:
 
           # --- App + consumers, as prebuilt containers (Docker's own
           # --restart policy supervises these, the role systemd plays for
-          # Kafka above). --network host so they reach Postgres/Valkey/Kafka
-          # on localhost exactly like the old native processes did. ---------
-          docker run --rm --network host --env-file /etc/finance-tracker.env "${DemoImage}" bin/rails db:create db:schema:load db:seed
+          # Kafka above). --network host covers Valkey/Kafka on localhost,
+          # but Postgres connects over a Unix socket (database.yml sets no
+          # host, so the pg gem defaults to one) - sockets are filesystem
+          # paths, not network, so --network host alone doesn't expose it;
+          # bind-mounting the host's socket directory does.
+          docker run --rm --network host -v /run/postgresql:/run/postgresql --env-file /etc/finance-tracker.env "${DemoImage}" bin/rails db:create db:schema:load db:seed
 
           docker run -d --name finance-tracker-rails --network host --restart unless-stopped \
-            --env-file /etc/finance-tracker.env "${DemoImage}"
+            -v /run/postgresql:/run/postgresql --env-file /etc/finance-tracker.env "${DemoImage}"
 
           docker run -d --name finance-tracker-karafka --network host --restart unless-stopped \
-            --env-file /etc/finance-tracker.env "${DemoImage}" bundle exec karafka server
+            -v /run/postgresql:/run/postgresql --env-file /etc/finance-tracker.env "${DemoImage}" bundle exec karafka server
 
 Outputs:
   DemoURL:
