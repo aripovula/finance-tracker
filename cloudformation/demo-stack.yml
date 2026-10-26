@@ -208,8 +208,8 @@ Resources:
           asdf plugin add kafka
           asdf install java temurin-21.0.12+8.0.LTS
           asdf install kafka apache-4.1.2
-          asdf global java temurin-21.0.12+8.0.LTS
-          asdf global kafka apache-4.1.2
+          asdf set -u java temurin-21.0.12+8.0.LTS
+          asdf set -u kafka apache-4.1.2
           SETUP
 
           # --- Kafka process supervision (systemd, not nohup) - the only
