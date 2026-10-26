@@ -124,7 +124,7 @@ Resources:
           shutdown -h +${SafetyNetShutdownMinutes} || true
 
           dnf update -y
-          dnf install -y docker postgresql15-server postgresql15 valkey
+          dnf install -y git docker postgresql15-server postgresql15 valkey
           # AWS CLI v2 ships preinstalled on the AL2023 AMI - not dnf-installed
           # here, since that package name has changed across AL2023 releases
           # and a wrong one would abort this whole script under `set -e`.
