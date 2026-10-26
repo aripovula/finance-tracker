@@ -466,6 +466,18 @@ Resources:
       Principal: "*"
       FunctionUrlAuthType: NONE
 
+  # As of a late-2025 Lambda change, InvokeFunctionUrl above is no longer
+  # sufficient by itself - public Function URL callers also need this
+  # second statement granting lambda:InvokeFunction, scoped to only apply
+  # when actually invoked via the Function URL (not some other path).
+  LauncherFunctionUrlInvokeAccess:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LauncherFunction
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
+
   LauncherFunctionUrl:
     Type: AWS::Lambda::Url
     Properties:
