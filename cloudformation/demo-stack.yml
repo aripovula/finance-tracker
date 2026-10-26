@@ -96,10 +96,16 @@ Resources:
         (AmazonSSMManagedInstanceCore) for shell access if needed.
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
+          FromPort: 3000
+          ToPort: 3000
           CidrIp: 0.0.0.0/0
-          Description: Public access to the Rails app (Thruster, inside the prebuilt container, listens on 80 and proxies to Puma internally)
+          # Thruster's default (HTTP_PORT=80) needs CAP_NET_BIND_SERVICE to
+          # bind a privileged port as the container's non-root user, which
+          # doesn't reliably carry over under --network host - observed
+          # directly as "listen tcp :80: bind: permission denied" in a real
+          # boot. HTTP_PORT=3000 (set on the container below) sidesteps the
+          # privileged-port rule entirely rather than fighting capabilities.
+          Description: Public access to the Rails app (Thruster, inside the prebuilt container, listens on 3000 and proxies to Puma internally)
 
   DemoInstance:
     Type: AWS::EC2::Instance
@@ -252,7 +258,7 @@ Resources:
           docker run --rm --network host -v /run/postgresql:/run/postgresql --env-file /etc/finance-tracker.env "${DemoImage}" bin/rails db:create db:schema:load db:seed
 
           docker run -d --name finance-tracker-rails --network host --restart unless-stopped \
-            -v /run/postgresql:/run/postgresql --env-file /etc/finance-tracker.env "${DemoImage}"
+            -v /run/postgresql:/run/postgresql -e HTTP_PORT=3000 --env-file /etc/finance-tracker.env "${DemoImage}"
 
           docker run -d --name finance-tracker-karafka --network host --restart unless-stopped \
             -v /run/postgresql:/run/postgresql --env-file /etc/finance-tracker.env "${DemoImage}" bundle exec karafka server
@@ -261,10 +267,10 @@ Outputs:
   DemoURL:
     Description: >
       Direct URL for the demo (Thruster, inside the prebuilt container, on
-      :80), bypassing CloudFront - for debugging. Visitors get the
+      :3000), bypassing CloudFront - for debugging. Visitors get the
       launcher's own stable CloudFront URL instead (CLAUDE.md §13), which
       stays the same across every demo cycle even though this one doesn't.
-    Value: !Sub http://${DemoInstance.PublicDnsName}
+    Value: !Sub http://${DemoInstance.PublicDnsName}:3000
 
   InstancePublicDnsName:
     Description: >
