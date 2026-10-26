@@ -201,6 +201,12 @@
       "Resource": "arn:aws:s3:::finance-tracker-demo-template-*"
     },
     {
+      "Sid": "UploadDemoStackTemplateOnly",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::finance-tracker-demo-template-*/demo-stack.yml"
+    },
+    {
       "Sid": "ManageOnlyTheDemoStateTable",
       "Effect": "Allow",
       "Action": ["dynamodb:CreateTable", "dynamodb:DescribeTable", "dynamodb:DeleteTable"],
