@@ -238,6 +238,31 @@ DEMO_TRANSACTIONS_LAST_MONTH = [
   { category: "Gyms And Fitness Centers", merchant: "Planet Fitness", amount_cents: 3999, day_of_month: 3 }
 ].freeze
 
+# Two and three months back - exists so the dashboard's 4-month trend/category
+# charts (app/views/home/index.html.erb, months_count: 4) have real data for
+# every bar instead of zeros in the older months. Day-of-month values here
+# stay <= 28 so `date.change(day:)` never lands on a day a short month (e.g.
+# February) doesn't have.
+DEMO_TRANSACTIONS_TWO_MONTHS_AGO = [
+  { category: "Groceries", merchant: "Whole Foods Market", amount_cents: 7890, day_of_month: 5 },
+  { category: "Groceries", merchant: "Safeway", amount_cents: 5430, day_of_month: 19 },
+  { category: "Restaurants", merchant: "Olive Garden", amount_cents: 4120, day_of_month: 9 },
+  { category: "Coffee", merchant: "Starbucks", amount_cents: 540, day_of_month: 6 },
+  { category: "Gas", merchant: "Shell", amount_cents: 4560, day_of_month: 8 },
+  { category: "Rent", merchant: "Parkview Apartments", amount_cents: 152000, day_of_month: 1 },
+  { category: "Internet And Cable", merchant: "Comcast Xfinity", amount_cents: 7999, day_of_month: 5 },
+  { category: "Discount Stores", merchant: "Target", amount_cents: 4210, day_of_month: 17 }
+].freeze
+
+DEMO_TRANSACTIONS_THREE_MONTHS_AGO = [
+  { category: "Groceries", merchant: "Trader Joe's", amount_cents: 6780, day_of_month: 4 },
+  { category: "Restaurants", merchant: "Shake Shack", amount_cents: 2980, day_of_month: 15 },
+  { category: "Coffee", merchant: "Starbucks", amount_cents: 610, day_of_month: 10 },
+  { category: "Gas", merchant: "Chevron", amount_cents: 4320, day_of_month: 21 },
+  { category: "Rent", merchant: "Parkview Apartments", amount_cents: 152000, day_of_month: 1 },
+  { category: "TV And Movies", merchant: "Netflix", amount_cents: 1549, day_of_month: 9 }
+].freeze
+
 # A second, much larger account for Alex (alongside the small Bank of America
 # one above) - demos multi-bank support and gives panels that stay empty
 # with only the default small seed set (like "Investment transfers",
@@ -322,6 +347,75 @@ WELLS_FARGO_TRANSACTIONS_LAST_MONTH = [
   { category: "Interest Charge", merchant: "Wells Fargo Interest Charge", amount_cents: 1240, day_of_month: 20 }
 ].freeze
 
+# Two and three months back for Alex's larger Wells Fargo account - see the
+# DEMO_TRANSACTIONS_TWO_MONTHS_AGO comment above for why these exist and why
+# day_of_month stays <= 28.
+WELLS_FARGO_TRANSACTIONS_TWO_MONTHS_AGO = [
+  { category: "Wages", merchant: "Globex Corp Payroll", amount_cents: 285000, day_of_month: 1 },
+  { category: "Wages", merchant: "Globex Corp Payroll", amount_cents: 285000, day_of_month: 15 },
+  { category_code: "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS", merchant: "Fidelity 401(k) Contribution", amount_cents: 45000, day_of_month: 15 },
+  { category_code: "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS", merchant: "Charles Schwab Brokerage Transfer", amount_cents: 90000, day_of_month: 22 },
+  { category: "Rent", merchant: "Parkview Apartments", amount_cents: 152000, day_of_month: 1 },
+  { category: "Gas And Electricity", merchant: "PG&E", amount_cents: 10230, day_of_month: 6 },
+  { category: "Internet And Cable", merchant: "Comcast Xfinity", amount_cents: 7999, day_of_month: 5 },
+  { category: "Water", merchant: "City Water Utility", amount_cents: 3600, day_of_month: 8 },
+  { category: "Telephone", merchant: "Verizon Wireless", amount_cents: 8500, day_of_month: 10 },
+  { category: "Groceries", merchant: "Whole Foods Market", amount_cents: 8870, day_of_month: 2 },
+  { category: "Groceries", merchant: "Trader Joe's", amount_cents: 5120, day_of_month: 9 },
+  { category: "Superstores", merchant: "Costco", amount_cents: 17340, day_of_month: 13 },
+  { category: "Groceries", merchant: "Safeway", amount_cents: 6450, day_of_month: 23 },
+  { category: "Restaurants", merchant: "Chipotle", amount_cents: 2310, day_of_month: 3 },
+  { category: "Restaurants", merchant: "Cheesecake Factory", amount_cents: 7120, day_of_month: 11 },
+  { category: "Fast Food", merchant: "Chick-fil-A", amount_cents: 1690, day_of_month: 14 },
+  { category: "Coffee", merchant: "Starbucks", amount_cents: 600, day_of_month: 4 },
+  { category: "Coffee", merchant: "Blue Bottle Coffee", amount_cents: 780, day_of_month: 18 },
+  { category: "Gas", merchant: "Shell", amount_cents: 4870, day_of_month: 7 },
+  { category: "Gas", merchant: "Chevron", amount_cents: 4650, day_of_month: 22 },
+  { category: "Taxis And Ride Shares", merchant: "Lyft", amount_cents: 2010, day_of_month: 12 },
+  { category: "Public Transit", merchant: "Clipper Card", amount_cents: 12000, day_of_month: 2 },
+  { category: "TV And Movies", merchant: "Netflix", amount_cents: 1549, day_of_month: 9 },
+  { category: "Music And Audio", merchant: "Spotify", amount_cents: 1099, day_of_month: 9 },
+  { category: "Online Marketplaces", merchant: "Amazon", amount_cents: 5920, day_of_month: 6 },
+  { category: "Discount Stores", merchant: "Target", amount_cents: 7340, day_of_month: 16 },
+  { category: "Gyms And Fitness Centers", merchant: "Equinox", amount_cents: 18900, day_of_month: 1 },
+  { category: "Hair And Beauty", merchant: "Great Clips", amount_cents: 3200, day_of_month: 15 },
+  { category: "Pharmacies And Supplements", merchant: "CVS Pharmacy", amount_cents: 3980, day_of_month: 11 },
+  { category: "ATM Fees", merchant: "Non-Network ATM Fee", amount_cents: 350, day_of_month: 10 },
+  { category: "Credit Card Payment", merchant: "Wells Fargo Credit Card Payment", amount_cents: 91000, day_of_month: 20 },
+  { category: "Car Payment", merchant: "Toyota Financial Services", amount_cents: 42000, day_of_month: 5 },
+  { category: "Pet Supplies", merchant: "Chewy", amount_cents: 5430, day_of_month: 13 },
+  { category: "Insurance", merchant: "Geico", amount_cents: 14200, day_of_month: 24 }
+].freeze
+
+WELLS_FARGO_TRANSACTIONS_THREE_MONTHS_AGO = [
+  { category: "Wages", merchant: "Globex Corp Payroll", amount_cents: 285000, day_of_month: 1 },
+  { category: "Wages", merchant: "Globex Corp Payroll", amount_cents: 285000, day_of_month: 15 },
+  { category_code: "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS", merchant: "Fidelity 401(k) Contribution", amount_cents: 45000, day_of_month: 15 },
+  { category_code: "TRANSFER_OUT_INVESTMENT_AND_RETIREMENT_FUNDS", merchant: "Vanguard Brokerage Transfer", amount_cents: 60000, day_of_month: 27 },
+  { category: "Rent", merchant: "Parkview Apartments", amount_cents: 152000, day_of_month: 1 },
+  { category: "Gas And Electricity", merchant: "PG&E", amount_cents: 8950, day_of_month: 6 },
+  { category: "Internet And Cable", merchant: "Comcast Xfinity", amount_cents: 7999, day_of_month: 5 },
+  { category: "Telephone", merchant: "Verizon Wireless", amount_cents: 8500, day_of_month: 10 },
+  { category: "Groceries", merchant: "Whole Foods Market", amount_cents: 8120, day_of_month: 4 },
+  { category: "Groceries", merchant: "Trader Joe's", amount_cents: 4870, day_of_month: 17 },
+  { category: "Superstores", merchant: "Costco", amount_cents: 15680, day_of_month: 12 },
+  { category: "Restaurants", merchant: "Shake Shack", amount_cents: 2760, day_of_month: 8 },
+  { category: "Restaurants", merchant: "Olive Garden", amount_cents: 5890, day_of_month: 16 },
+  { category: "Fast Food", merchant: "Chipotle", amount_cents: 2040, day_of_month: 21 },
+  { category: "Coffee", merchant: "Starbucks", amount_cents: 650, day_of_month: 9 },
+  { category: "Gas", merchant: "Shell", amount_cents: 4720, day_of_month: 7 },
+  { category: "Taxis And Ride Shares", merchant: "Uber", amount_cents: 1890, day_of_month: 14 },
+  { category: "TV And Movies", merchant: "Netflix", amount_cents: 1549, day_of_month: 9 },
+  { category: "Online Marketplaces", merchant: "Amazon", amount_cents: 4980, day_of_month: 11 },
+  { category: "Clothing And Accessories", merchant: "Nordstrom", amount_cents: 11400, day_of_month: 19 },
+  { category: "Gyms And Fitness Centers", merchant: "Equinox", amount_cents: 18900, day_of_month: 1 },
+  { category: "Veterinary Services", merchant: "Banfield Pet Hospital", amount_cents: 8600, day_of_month: 18 },
+  { category: "Credit Card Payment", merchant: "Wells Fargo Credit Card Payment", amount_cents: 82000, day_of_month: 20 },
+  { category: "Interest Charge", merchant: "Wells Fargo Interest Charge", amount_cents: 1180, day_of_month: 20 },
+  { category: "Repair And Maintenance", merchant: "Handy", amount_cents: 12800, day_of_month: 23 },
+  { category: "Electronics", merchant: "Best Buy", amount_cents: 15900, day_of_month: 25 }
+].freeze
+
 # Restaurants is deliberately over its limit (seeded spend is $116.09 of a
 # $100 budget) so the budget-alert banner has something to show out of the
 # box; Rent is close to its limit without going over, for visual contrast.
@@ -391,7 +485,10 @@ def seed_demo_user!(name:, password:, institution_name:)
 
   seed_demo_bank_account!(
     user: user, account_slug: slug, institution_name: institution_name,
-    monthly_templates: [ DEMO_TRANSACTIONS_THIS_MONTH, DEMO_TRANSACTIONS_LAST_MONTH ]
+    monthly_templates: [
+      DEMO_TRANSACTIONS_THIS_MONTH, DEMO_TRANSACTIONS_LAST_MONTH,
+      DEMO_TRANSACTIONS_TWO_MONTHS_AGO, DEMO_TRANSACTIONS_THREE_MONTHS_AGO
+    ]
   )
 
   budgets = DEMO_BUDGETS_THIS_MONTH.map do |template|
@@ -423,7 +520,10 @@ seed_demo_bank_account!(
   user: User.find_by!(email: DemoUserPresets::ALL[0][:name]),
   account_slug: "#{alex_slug}-wells-fargo",
   institution_name: "Wells Fargo",
-  monthly_templates: [ WELLS_FARGO_TRANSACTIONS_THIS_MONTH, WELLS_FARGO_TRANSACTIONS_LAST_MONTH ]
+  monthly_templates: [
+    WELLS_FARGO_TRANSACTIONS_THIS_MONTH, WELLS_FARGO_TRANSACTIONS_LAST_MONTH,
+    WELLS_FARGO_TRANSACTIONS_TWO_MONTHS_AGO, WELLS_FARGO_TRANSACTIONS_THREE_MONTHS_AGO
+  ]
 )
 
 # The dashboard's spend/budget/trend panels all read from monthly_summaries
