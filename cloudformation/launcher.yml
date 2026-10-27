@@ -222,6 +222,19 @@ Resources:
               - Effect: Allow
                 Action: ssm:GetParameters
                 Resource: arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*
+              # demo-stack.yml's RailsMasterKeyParameterName is typed
+              # AWS::SSM::Parameter::Name - CloudFormation itself calls
+              # ssm:GetParameter to validate that parameter exists, using
+              # whichever identity is actually provisioning the stack (this
+              # role), not the EC2 instance's own role. Confirmed via
+              # CloudTrail as the actual cause of CreateStack silently
+              # retrying forever instead of failing cleanly: this role
+              # never had this permission, only the human deploy user's own
+              # policy did (from its separate one-time setup use), which is
+              # why direct CLI create-stack always worked but this never did.
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/finance-tracker/demo/*
 
   # One shared role for both the public API Lambda and the reconciler
   # timer below - matching EventTicketing, where one managed identity
