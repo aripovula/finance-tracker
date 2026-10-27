@@ -247,8 +247,8 @@ DEMO_BUDGETS_THIS_MONTH = [
   { category: "Rent", monthly_limit_cents: 160_000 }
 ].freeze
 
-def seed_demo_transaction!(bank_account:, slug:, index:, posted_at:, template:)
-  Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{slug}-#{index}") do |txn|
+def seed_demo_transaction!(bank_account:, key:, posted_at:, template:)
+  Transaction.find_or_create_by!(plaid_transaction_id: "txn-demo-#{key}") do |txn|
     txn.bank_account = bank_account
     txn.category = Category.find_by!(name: template[:category])
     txn.merchant_name = template[:merchant]
@@ -259,34 +259,45 @@ def seed_demo_transaction!(bank_account:, slug:, index:, posted_at:, template:)
   end
 end
 
-def seed_demo_user!(name:, password:, institution_name:)
-  slug = name.downcase
+def seed_demo_bank_account!(user:, account_slug:, institution_name:, this_month_templates:, last_month_templates:)
   this_month = Date.current.beginning_of_month
   last_month = this_month - 1.month
 
-  user = User.find_or_create_by!(email: name) { |u| u.password = password }
-
-  bank_account = BankAccount.find_or_create_by!(plaid_account_id: "account-demo-#{slug}") do |ba|
+  bank_account = BankAccount.find_or_create_by!(plaid_account_id: "account-demo-#{account_slug}") do |ba|
     ba.user = user
-    ba.plaid_item_id = "item-demo-#{slug}"
-    ba.plaid_access_token = "access-demo-#{slug}"
+    ba.plaid_item_id = "item-demo-#{account_slug}"
+    ba.plaid_access_token = "access-demo-#{account_slug}"
     ba.institution_name = institution_name
     ba.mask = rand(1000..9999).to_s
   end
 
-  DEMO_TRANSACTIONS_THIS_MONTH.each_with_index do |template, index|
+  this_month_templates.each_with_index do |template, index|
     seed_demo_transaction!(
-      bank_account: bank_account, slug: slug, index: index,
+      bank_account: bank_account, key: "#{account_slug}-#{index}",
       posted_at: this_month.change(day: template[:day_of_month]), template: template
     )
   end
 
-  DEMO_TRANSACTIONS_LAST_MONTH.each_with_index do |template, index|
+  last_month_templates.each_with_index do |template, index|
     seed_demo_transaction!(
-      bank_account: bank_account, slug: slug, index: "last-month-#{index}",
+      bank_account: bank_account, key: "#{account_slug}-last-month-#{index}",
       posted_at: last_month.change(day: template[:day_of_month]), template: template
     )
   end
+
+  bank_account
+end
+
+def seed_demo_user!(name:, password:, institution_name:)
+  slug = name.downcase
+  this_month = Date.current.beginning_of_month
+
+  user = User.find_or_create_by!(email: name) { |u| u.password = password }
+
+  seed_demo_bank_account!(
+    user: user, account_slug: slug, institution_name: institution_name,
+    this_month_templates: DEMO_TRANSACTIONS_THIS_MONTH, last_month_templates: DEMO_TRANSACTIONS_LAST_MONTH
+  )
 
   budgets = DEMO_BUDGETS_THIS_MONTH.map do |template|
     Budget.find_or_create_by!(
@@ -296,6 +307,8 @@ def seed_demo_user!(name:, password:, institution_name:)
 
   restaurants_budget = budgets.find { |budget| budget.category.name == "Restaurants" }
   restaurants_budget.budget_alerts.active.first_or_create!(spent_cents: 11_609)
+
+  user
 end
 
 [
