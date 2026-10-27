@@ -347,10 +347,20 @@ def seed_demo_transaction!(bank_account:, key:, posted_at:, template:)
   end
 end
 
-def seed_demo_bank_account!(user:, account_slug:, institution_name:, this_month_templates:, last_month_templates:)
-  this_month = Date.current.beginning_of_month
-  last_month = this_month - 1.month
+# Pre-existing key format: months_ago 0/1 keep their original "{slug}-{i}" /
+# "{slug}-last-month-{i}" names (so re-running seeds against a DB seeded by
+# the old two-argument version doesn't orphan those rows); months_ago 2+ are
+# new and just get "{slug}-m{n}-{i}".
+def demo_transaction_key(account_slug, months_ago, index)
+  suffix = case months_ago
+  when 0 then ""
+  when 1 then "last-month-"
+  else "m#{months_ago}-"
+  end
+  "#{account_slug}-#{suffix}#{index}"
+end
 
+def seed_demo_bank_account!(user:, account_slug:, institution_name:, monthly_templates:)
   bank_account = BankAccount.find_or_create_by!(plaid_account_id: "account-demo-#{account_slug}") do |ba|
     ba.user = user
     ba.plaid_item_id = "item-demo-#{account_slug}"
@@ -359,18 +369,15 @@ def seed_demo_bank_account!(user:, account_slug:, institution_name:, this_month_
     ba.mask = rand(1000..9999).to_s
   end
 
-  this_month_templates.each_with_index do |template, index|
-    seed_demo_transaction!(
-      bank_account: bank_account, key: "#{account_slug}-#{index}",
-      posted_at: this_month.change(day: template[:day_of_month]), template: template
-    )
-  end
+  monthly_templates.each_with_index do |templates, months_ago|
+    month = Date.current.beginning_of_month - months_ago.months
 
-  last_month_templates.each_with_index do |template, index|
-    seed_demo_transaction!(
-      bank_account: bank_account, key: "#{account_slug}-last-month-#{index}",
-      posted_at: last_month.change(day: template[:day_of_month]), template: template
-    )
+    templates.each_with_index do |template, index|
+      seed_demo_transaction!(
+        bank_account: bank_account, key: demo_transaction_key(account_slug, months_ago, index),
+        posted_at: month.change(day: template[:day_of_month]), template: template
+      )
+    end
   end
 
   bank_account
@@ -384,7 +391,7 @@ def seed_demo_user!(name:, password:, institution_name:)
 
   seed_demo_bank_account!(
     user: user, account_slug: slug, institution_name: institution_name,
-    this_month_templates: DEMO_TRANSACTIONS_THIS_MONTH, last_month_templates: DEMO_TRANSACTIONS_LAST_MONTH
+    monthly_templates: [ DEMO_TRANSACTIONS_THIS_MONTH, DEMO_TRANSACTIONS_LAST_MONTH ]
   )
 
   budgets = DEMO_BUDGETS_THIS_MONTH.map do |template|
@@ -416,8 +423,7 @@ seed_demo_bank_account!(
   user: User.find_by!(email: DemoUserPresets::ALL[0][:name]),
   account_slug: "#{alex_slug}-wells-fargo",
   institution_name: "Wells Fargo",
-  this_month_templates: WELLS_FARGO_TRANSACTIONS_THIS_MONTH,
-  last_month_templates: WELLS_FARGO_TRANSACTIONS_LAST_MONTH
+  monthly_templates: [ WELLS_FARGO_TRANSACTIONS_THIS_MONTH, WELLS_FARGO_TRANSACTIONS_LAST_MONTH ]
 )
 
 # The dashboard's spend/budget/trend panels all read from monthly_summaries
