@@ -25,10 +25,15 @@ Rails.application.configure do
   config.active_storage.service = :local
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
+  # The demo's CloudFront distribution terminates TLS at the edge and talks to the
+  # EC2 origin over plain HTTP (CLAUDE.md §13) - without this, redirect_to/url_for
+  # generate http:// URLs even on an https:// page, which browsers silently block
+  # as mixed content when Turbo tries to follow them (observed directly: login
+  # succeeded server-side but the post-login redirect never happened).
+  config.assume_ssl = true
 
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
+  config.force_ssl = true
 
   # Skip http-to-https redirect for the default health check endpoint.
   # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
