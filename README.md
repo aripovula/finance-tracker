@@ -386,11 +386,14 @@ aws ssm start-session --target <InstanceId>
 aws cloudformation delete-stack --stack-name finance-tracker-demo
 ```
 
-This template hasn't been run against a real AWS account yet — it's been checked for YAML
-validity and for `Fn::Sub`/bash `${...}` collisions (CloudFormation's own substitution and bash's
-variable syntax use the same braces, which is a common source of broken `UserData` scripts), but
-package names and exact boot behavior on a fresh Amazon Linux 2023 instance are only verifiable
-by actually running it. Treat the first real deploy as a test run, not a known-good path.
+This template has been run against a real AWS account and confirmed working end-to-end — the
+instance boots, the app's containers start, and the login flow works. Getting there surfaced
+(and fixed) several real boot-script bugs along the way: a missing `git` package broke `asdf`
+plugin installation, `asdf global` doesn't exist in the modern single-binary `asdf` (it's
+`asdf set -u` now), the app's Postgres connection (a Unix socket, not TCP) wasn't visible inside
+the container until explicitly bind-mounted, and Thruster couldn't bind port 80 as the
+container's non-root user under `--network host` (nor port 3000, which collides with Puma's own
+default port) — it listens on 8080 instead.
 
 ## Demo launcher (keyless, automatic provisioning)
 
@@ -399,21 +402,83 @@ by actually running it. Treat the first real deploy as a test run, not a known-g
 once by hand and left running indefinitely; it's the thing that creates/extends/deletes the
 single shared `finance-tracker-demo` instance, not something recreated per visitor.
 
-In short: there's only ever at most one demo instance. The portfolio page POSTs to a public
-Lambda Function URL on page load, which creates the instance if it doesn't exist, or pushes its
-teardown time forward another 30 minutes if it's already running (same if a visitor's click
-triggers a later POST — every POST extends). A separate reconciler Lambda, on a fixed 2-minute
-timer, is what actually deletes the stack once that teardown time passes, or recreates it if a
-POST came in while the old one was still deleting.
+### The whole process, step by step
 
-The URL visitors actually get is a CloudFront distribution's own domain (`https://d.......
-cloudfront.net`), not the EC2 instance directly — real HTTPS with zero custom domain and zero
-certificate management, since CloudFront already has a valid, AWS-managed certificate on its own
-domain for every distribution. That domain never changes between demo cycles even though the EC2
-instance behind it does; the launcher repoints CloudFront's origin at whichever instance is
-currently running, and only reports `"ready"` once a direct HTTPS request through that same
-CloudFront URL actually succeeds (not just once the EC2 instance exists — its containers can take
-a while longer to actually start answering requests).
+1. **A visitor opens the portfolio page.** Its JS calls the launcher's public Lambda Function
+   URL once with `POST` — no API key, no login, nothing to configure on the visitor's side.
+2. **The launcher Lambda** checks whether the shared demo stack currently exists. If not, it
+   fetches `demo-stack.yml` from S3 and calls `CreateStack` — handing that work to a dedicated
+   CloudFormation service role (`DemoProvisioningRole`) rather than doing it with its own
+   credentials, which matters more than it sounds like: Lambda's own short-lived credentials
+   aren't meant to be reused by CloudFormation's asynchronous provisioning, which keeps running
+   well after the Lambda invocation itself has already returned. Either way — new stack or
+   already-running one — every `POST` also pushes the shared teardown time forward by 30
+   minutes, recorded in a small DynamoDB table (CloudFormation itself has no field for "when
+   should this get deleted").
+3. **CloudFormation provisions the instance**: one security group, one EC2 instance. Its boot
+   script installs Postgres, Valkey, and Kafka natively (the same "no Docker" approach local dev
+   uses for infra), then pulls a prebuilt Docker image (built by `.github/workflows/release.yml`
+   on every push to `main`) and runs the Rails app and its Karafka consumers as containers —
+   avoiding compiling Ruby or bundling gems at boot, which is what makes the whole cycle fast
+   enough to be worth doing per visitor at all.
+4. **A separate reconciler Lambda**, on its own fixed 2-minute timer — independent of any
+   visitor's request — is what actually deletes the stack once nobody has pushed that teardown
+   time forward in the last 30 minutes, or recreates it if a `POST` came in while the previous
+   instance was still mid-teardown.
+5. **The public URL never changes.** Visitors always get one CloudFront distribution's own
+   domain, not the EC2 instance directly — real HTTPS, zero custom domain, zero certificate
+   management, since CloudFront already has a valid, AWS-managed certificate for every
+   distribution it creates. The EC2 instance behind that URL gets recreated (with a new address)
+   every cycle; the launcher keeps CloudFront's origin pointed at whichever instance is actually
+   running, and only reports `"ready"` once a direct HTTPS request through that same public URL
+   actually succeeds — not just once the EC2 instance exists, since its containers take a while
+   longer than that to actually start answering requests.
+6. **Between visits, almost nothing runs.** The EC2 instance (the only real cost driver) exists
+   only from first visit until 30 idle minutes later. The reconciler's tick, the CloudFront
+   distribution, and the DynamoDB table all stay provisioned permanently, but at negligible or
+   zero cost while idle.
+
+### Calling it from the portfolio site
+
+The contract is deliberately tiny — two methods, one shape, no auth:
+
+- `POST` the launcher URL once when the page loads. Starts the demo if nothing's running, or
+  extends the existing one. Optionally `POST` again later (e.g. on a click), to push the teardown
+  further out while someone's actively using the page.
+- `GET` the same URL to poll, read-only — never creates, deletes, or extends anything.
+- Both return the same JSON shape: `{"state": "stopped" | "starting" | "ready" | "stopping",
+  "url": string | null, "expiresAt": string | null}`. `url` is only non-null once `state` is
+  `"ready"` — that's the real demo link to show or redirect to.
+- The demo app sets `X-Frame-Options: SAMEORIGIN`, so link to it or redirect the visitor there —
+  don't try to embed it in an `<iframe>`.
+
+```js
+const LAUNCHER_URL = "<the LauncherUrl output from deploying launcher.yml>";
+
+async function startOrExtendDemo() {
+  const res = await fetch(LAUNCHER_URL, { method: "POST" });
+  return res.json();
+}
+
+async function pollDemo() {
+  const res = await fetch(LAUNCHER_URL); // GET, read-only
+  return res.json();
+}
+
+async function showDemo() {
+  let { state, url } = await startOrExtendDemo();
+  renderStarting(); // "Deploying the demo, usually a couple of minutes..."
+  while (state !== "ready") {
+    await new Promise((resolve) => setTimeout(resolve, 8000));
+    ({ state, url } = await pollDemo());
+  }
+  renderReady(url); // show a link/button to `url`
+}
+```
+
+No CORS setup needed on the portfolio side beyond deploying `launcher.yml` with
+`PortfolioOrigin` set to the site's exact origin (scheme + host[:port]) — the Lambda Function
+URL's own CORS config handles the rest, including the browser's `OPTIONS` preflight.
 
 ```bash
 # Once, ahead of time: store the Rails master key as a SecureString SSM parameter.
@@ -450,19 +515,12 @@ instance pulls the demo image with no registry credentials at all (keeping the w
 keyless). After `.github/workflows/release.yml` runs once, go to the package's settings on
 GitHub and set its visibility to Public.
 
-The portfolio page's JS: `POST` the launcher URL on page load and on later activity (a click),
-`GET` it to poll, read-only, every few seconds in between. Both return the same shape —
-`{"state": "...", "url": "...", "expiresAt": "..."}`, `state` one of `stopped`/`starting`/
-`ready`/`stopping` — show/redirect to `url` once `state` is `"ready"`. No API key, no CORS issue
-(the Lambda Function URL's CORS config only allows the exact `PortfolioOrigin` you deployed
-with, and only `GET`/`POST`).
-
-Like `demo-stack.yml`, this hasn't been run against a real AWS account yet either — checked for
-YAML validity and the embedded Python's syntax, not for actual IAM-permission correctness.
-`DemoLifecycleRole`'s policy is a deliberate subset of `deploy-policy.json`'s already-iterated-on
-permission set (see `CLAUDE.md` §13), but the first real `CreateStack` call through this path may
-still surface a missing permission the same way the human deploy path did — treat it the same as
-`demo-stack.yml`: a test run, not a known-good path yet.
+This whole path — `POST` through to a working, logged-in demo at the public CloudFront URL — has
+been run end-to-end against a real AWS account and confirmed working, including the app's login
+flow. `config.assume_ssl`/`config.force_ssl` are both on in production specifically because
+CloudFront terminates TLS at the edge and talks to the EC2 origin over plain HTTP — without them,
+Rails doesn't know the original request was HTTPS, generates `http://` redirect URLs, and
+browsers silently block following those as mixed content.
 
 ## Project structure
 
