@@ -82,17 +82,23 @@
     </div>
     <% comparisons = @dashboard.budget_comparisons %>
     <% if comparisons.any? %>
-      <% name_x = 165; zero_x = 330; value_x = 590; scale = 1.4; row_height = 40 %>
+      <% name_x = 165; zero_x = 330; value_x = 590; scale = 1.4; row_height = 40; max_bar_w = 215 %>
       <div class="max-h-[340px] overflow-y-auto">
         <svg viewBox="0 0 600 <%= comparisons.size * row_height + 20 %>" class="w-full">
           <line x1="<%= zero_x %>" y1="4" x2="<%= zero_x %>" y2="<%= comparisons.size * row_height %>" stroke="#d1d5db" stroke-width="1"/>
           <% comparisons.each_with_index do |comparison, i| %>
             <% y_center = 30 + i * row_height %>
-            <% clamped = comparison[:delta_pct].clamp(-100, 100) %>
-            <% if clamped >= 0 %>
-              <% bar_x = zero_x; bar_w = clamped * scale %>
+            <% delta = comparison[:delta_pct] %>
+            <% if delta >= 0 %>
+              <% bar_x = zero_x %>
+              <% # Linear up to +100%, then compressed (sqrt) beyond - a handful of
+                 # sparse trailing-average categories can run to several hundred
+                 # percent, and a flat clamp here used to render every one of
+                 # those at the same maxed-out width. %>
+              <% bar_w = delta <= 100 ? delta * scale : (100 * scale) + Math.sqrt(delta - 100) * 5 %>
+              <% bar_w = bar_w.clamp(0, max_bar_w) %>
             <% else %>
-              <% bar_w = -clamped * scale; bar_x = zero_x - bar_w %>
+              <% bar_w = delta.clamp(-100, 0).abs * scale; bar_x = zero_x - bar_w %>
             <% end %>
             <text x="<%= name_x %>" y="<%= y_center + 4 %>" font-size="11.5" text-anchor="end" fill="#111827">
               <%= truncate(comparison[:category_name], length: 20) %>
