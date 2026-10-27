@@ -419,3 +419,10 @@ seed_demo_bank_account!(
   this_month_templates: WELLS_FARGO_TRANSACTIONS_THIS_MONTH,
   last_month_templates: WELLS_FARGO_TRANSACTIONS_LAST_MONTH
 )
+
+# The dashboard's spend/budget/trend panels all read from monthly_summaries
+# (app/services/dashboard_data.rb), not transactions directly - that table is
+# normally rebuilt nightly (NightlySummaryRebuildJob, config/recurring.yml).
+# Seeding transactions alone leaves it empty, so rebuild it here too (same
+# approach as loadtest/seed.rb).
+NightlySummaryRebuildJob.perform_now
