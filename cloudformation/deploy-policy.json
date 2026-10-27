@@ -339,6 +339,12 @@
         "arn:aws:logs:*:<ACCOUNT_ID>:log-group:/aws/lambda/finance-tracker-demo-launcher:*",
         "arn:aws:logs:*:<ACCOUNT_ID>:log-group:/aws/lambda/finance-tracker-demo-reconciler:*"
       ]
+    },
+    {
+      "Sid": "LookUpCloudTrailEventsReadOnly",
+      "Effect": "Allow",
+      "Action": "cloudtrail:LookupEvents",
+      "Resource": "*"
     }
   ]
 }
